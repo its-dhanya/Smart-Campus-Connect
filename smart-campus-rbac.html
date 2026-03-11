@@ -1,0 +1,1408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Smart Campus Connect — RBAC</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,400;0,500;0,600;1,400&family=Bebas+Neue&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+
+:root{
+  --bg:#080a0f;
+  --s1:#0e1018;
+  --s2:#141720;
+  --s3:#1a1e2e;
+  --border:#222638;
+  --border2:#2d3250;
+  --text:#dde3f8;
+  --muted:#5a6190;
+  --white:#ffffff;
+
+  /* role colors */
+  --super:#c084fc;
+  --teacher:#38bdf8;
+  --bus:#fb923c;
+  --laundry:#34d399;
+  --mess:#fbbf24;
+  --student:#a78bfa;
+}
+
+body{background:var(--bg);color:var(--text);font-family:'Plus Jakarta Sans',sans-serif;min-height:100vh;}
+
+/* ── LOGIN SCREEN ── */
+#loginScreen{
+  min-height:100vh;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:var(--bg);
+  position:relative;
+  overflow:hidden;
+}
+
+#loginScreen::before{
+  content:'';
+  position:absolute;
+  width:600px;height:600px;
+  border-radius:50%;
+  background:radial-gradient(circle, rgba(192,132,252,0.06) 0%, transparent 70%);
+  top:-100px;left:-100px;
+  pointer-events:none;
+}
+
+#loginScreen::after{
+  content:'';
+  position:absolute;
+  width:400px;height:400px;
+  border-radius:50%;
+  background:radial-gradient(circle, rgba(56,189,248,0.05) 0%, transparent 70%);
+  bottom:-50px;right:-50px;
+  pointer-events:none;
+}
+
+.login-box{
+  width:420px;
+  background:var(--s1);
+  border:1px solid var(--border);
+  border-radius:24px;
+  padding:40px;
+  position:relative;
+  z-index:1;
+  box-shadow:0 32px 80px rgba(0,0,0,0.5);
+}
+
+.login-logo{
+  font-family:'Bebas Neue',sans-serif;
+  font-size:2.2rem;
+  letter-spacing:0.1em;
+  color:var(--white);
+  margin-bottom:4px;
+}
+
+.login-sub{font-size:0.8rem;color:var(--muted);margin-bottom:32px;}
+
+.login-label{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:0.6rem;
+  color:var(--muted);
+  text-transform:uppercase;
+  letter-spacing:0.1em;
+  margin-bottom:8px;
+  display:block;
+}
+
+.role-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+  margin-bottom:24px;
+}
+
+.role-card{
+  background:var(--s2);
+  border:1px solid var(--border);
+  border-radius:14px;
+  padding:14px;
+  cursor:pointer;
+  transition:all 0.2s;
+  position:relative;
+  overflow:hidden;
+}
+
+.role-card::before{
+  content:'';
+  position:absolute;
+  bottom:0;left:0;right:0;
+  height:2px;
+  opacity:0;
+  transition:opacity 0.2s;
+}
+
+.role-card:hover{border-color:var(--border2);transform:translateY(-2px);}
+
+.role-card.selected{border-color:currentColor;background:rgba(255,255,255,0.03);}
+.role-card.selected::before{opacity:1;}
+
+.role-card[data-role="SUPER_ADMIN"]{color:var(--super);}
+.role-card[data-role="SUPER_ADMIN"]::before{background:var(--super);}
+.role-card[data-role="TEACHER"]{color:var(--teacher);}
+.role-card[data-role="TEACHER"]::before{background:var(--teacher);}
+.role-card[data-role="BUS_ADMIN"]{color:var(--bus);}
+.role-card[data-role="BUS_ADMIN"]::before{background:var(--bus);}
+.role-card[data-role="LAUNDRY_ADMIN"]{color:var(--laundry);}
+.role-card[data-role="LAUNDRY_ADMIN"]::before{background:var(--laundry);}
+.role-card[data-role="MESS_ADMIN"]{color:var(--mess);}
+.role-card[data-role="MESS_ADMIN"]::before{background:var(--mess);}
+.role-card[data-role="STUDENT"]{color:var(--student);}
+.role-card[data-role="STUDENT"]::before{background:var(--student);}
+
+.role-icon{font-size:1.4rem;margin-bottom:6px;}
+.role-name{font-size:0.75rem;font-weight:700;color:var(--white);}
+.role-desc{font-size:0.62rem;color:var(--muted);margin-top:2px;}
+
+.login-btn{
+  width:100%;
+  padding:13px;
+  border-radius:12px;
+  border:none;
+  font-family:'Plus Jakarta Sans',sans-serif;
+  font-size:0.88rem;
+  font-weight:700;
+  cursor:pointer;
+  transition:all 0.2s;
+  background:var(--super);
+  color:#000;
+  letter-spacing:0.02em;
+}
+
+.login-btn:hover{opacity:0.9;transform:translateY(-1px);}
+
+/* ── APP SHELL ── */
+#appShell{display:none;}
+
+.topbar{
+  height:56px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:0 24px;
+  border-bottom:1px solid var(--border);
+  background:rgba(8,10,15,0.95);
+  backdrop-filter:blur(12px);
+  position:sticky;top:0;z-index:100;
+}
+
+.topbar-left{display:flex;align-items:center;gap:16px;}
+
+.app-logo{
+  font-family:'Bebas Neue',sans-serif;
+  font-size:1.2rem;
+  letter-spacing:0.08em;
+  color:var(--white);
+}
+
+.role-pill{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  padding:4px 10px;
+  border-radius:20px;
+  font-size:0.68rem;
+  font-weight:700;
+  border:1px solid currentColor;
+  opacity:0.9;
+}
+
+.topbar-right{display:flex;align-items:center;gap:10px;}
+
+.tb-btn{
+  width:34px;height:34px;
+  border-radius:9px;
+  background:var(--s2);
+  border:1px solid var(--border);
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;font-size:0.9rem;
+  transition:all 0.15s;
+  position:relative;
+}
+.tb-btn:hover{border-color:var(--border2);}
+
+.tb-badge{
+  position:absolute;top:-3px;right:-3px;
+  width:14px;height:14px;
+  background:#ef4444;
+  border-radius:50%;
+  font-size:0.5rem;font-weight:700;
+  display:flex;align-items:center;justify-content:center;
+  color:white;border:2px solid var(--bg);
+}
+
+.user-chip{
+  display:flex;align-items:center;gap:8px;
+  padding:4px 10px 4px 4px;
+  background:var(--s2);
+  border:1px solid var(--border);
+  border-radius:20px;
+  cursor:pointer;
+}
+
+.user-avatar{
+  width:26px;height:26px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:0.65rem;font-weight:800;color:#000;
+}
+
+.user-name{font-size:0.75rem;font-weight:600;color:var(--white);}
+
+/* ── LAYOUT ── */
+.app-layout{display:grid;grid-template-columns:220px 1fr;min-height:calc(100vh - 56px);}
+
+.sidebar{
+  border-right:1px solid var(--border);
+  padding:20px 12px;
+  display:flex;flex-direction:column;gap:2px;
+}
+
+.sb-section{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:0.55rem;color:var(--muted);
+  letter-spacing:0.14em;text-transform:uppercase;
+  padding:12px 10px 5px;
+}
+
+.sb-item{
+  display:flex;align-items:center;gap:9px;
+  padding:8px 10px;border-radius:9px;
+  cursor:pointer;font-size:0.8rem;font-weight:500;
+  color:var(--muted);transition:all 0.15s;
+  border:1px solid transparent;
+}
+
+.sb-item:hover{color:var(--text);background:var(--s2);}
+.sb-item.active{color:var(--white);background:var(--s2);border-color:var(--border);}
+.sb-item .si{font-size:0.95rem;width:18px;text-align:center;}
+
+.sb-badge{
+  margin-left:auto;
+  padding:1px 6px;border-radius:10px;
+  font-size:0.58rem;font-weight:700;
+  background:rgba(239,68,68,0.15);color:#f87171;
+}
+
+.content{padding:28px;overflow-y:auto;}
+
+/* ── DASHBOARD HEADER ── */
+.dash-header{
+  display:flex;align-items:flex-start;justify-content:space-between;
+  margin-bottom:24px;
+}
+
+.dash-title{
+  font-family:'Bebas Neue',sans-serif;
+  font-size:1.8rem;letter-spacing:0.05em;
+  color:var(--white);line-height:1;
+}
+
+.dash-sub{font-size:0.78rem;color:var(--muted);margin-top:4px;}
+
+.dash-date{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:0.68rem;color:var(--muted);
+  text-align:right;
+}
+
+/* ── STAT CARDS ── */
+.stats{display:grid;gap:14px;margin-bottom:24px;}
+.stats.cols4{grid-template-columns:repeat(4,1fr);}
+.stats.cols3{grid-template-columns:repeat(3,1fr);}
+.stats.cols2{grid-template-columns:repeat(2,1fr);}
+
+.stat{
+  background:var(--s2);
+  border:1px solid var(--border);
+  border-radius:14px;
+  padding:18px;
+  position:relative;overflow:hidden;
+}
+
+.stat-accent{
+  position:absolute;top:0;left:0;right:0;height:1.5px;
+  border-radius:1px 1px 0 0;
+}
+
+.stat-emoji{font-size:1.3rem;margin-bottom:10px;}
+.stat-val{
+  font-family:'Bebas Neue',sans-serif;
+  font-size:2rem;letter-spacing:0.03em;
+  color:var(--white);line-height:1;
+}
+.stat-lbl{font-size:0.72rem;color:var(--muted);margin-top:4px;}
+
+/* ── CARDS ── */
+.card{
+  background:var(--s2);
+  border:1px solid var(--border);
+  border-radius:14px;
+  overflow:hidden;
+}
+
+.card-header{
+  padding:14px 18px;
+  border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;
+}
+
+.card-title{font-size:0.85rem;font-weight:700;color:var(--white);display:flex;align-items:center;gap:7px;}
+
+.card-body{padding:18px;}
+
+/* ── FIRE EVENT FORM ── */
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;}
+.form-full{grid-column:1/-1;}
+
+.fl{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:0.58rem;color:var(--muted);
+  text-transform:uppercase;letter-spacing:0.1em;
+  display:block;margin-bottom:5px;
+}
+
+.fi,.fs{
+  width:100%;background:var(--s1);
+  border:1px solid var(--border);border-radius:8px;
+  padding:8px 11px;color:var(--text);
+  font-size:0.78rem;font-family:'Plus Jakarta Sans',sans-serif;
+  outline:none;transition:border-color 0.2s;
+}
+.fi:focus,.fs:focus{border-color:var(--border2);}
+.fs option{background:var(--s1);}
+
+.fire-btn{
+  display:inline-flex;align-items:center;gap:7px;
+  padding:10px 20px;border-radius:9px;border:none;
+  font-family:'Plus Jakarta Sans',sans-serif;
+  font-size:0.8rem;font-weight:700;
+  cursor:pointer;transition:all 0.2s;
+  color:#000;
+}
+.fire-btn:hover{transform:translateY(-1px);filter:brightness(1.1);}
+
+/* ── TABLE ── */
+.tbl{width:100%;border-collapse:collapse;}
+.tbl th{
+  text-align:left;padding:9px 14px;
+  font-family:'IBM Plex Mono',monospace;
+  font-size:0.58rem;color:var(--muted);
+  text-transform:uppercase;letter-spacing:0.08em;
+  border-bottom:1px solid var(--border);
+}
+.tbl td{
+  padding:11px 14px;font-size:0.78rem;
+  border-bottom:1px solid var(--border);color:var(--text);
+}
+.tbl tr:last-child td{border-bottom:none;}
+.tbl tr:hover td{background:rgba(255,255,255,0.015);}
+
+/* ── TAGS ── */
+.tag{
+  display:inline-flex;align-items:center;gap:3px;
+  padding:2px 8px;border-radius:5px;
+  font-size:0.65rem;font-weight:600;
+}
+.tag.green{background:rgba(52,211,153,0.1);color:var(--laundry);}
+.tag.red{background:rgba(248,113,113,0.1);color:#f87171;}
+.tag.yellow{background:rgba(251,191,36,0.1);color:var(--mess);}
+.tag.blue{background:rgba(56,189,248,0.1);color:var(--teacher);}
+.tag.muted{background:rgba(90,97,144,0.15);color:var(--muted);}
+
+/* ── FEED ── */
+.feed-item{
+  display:flex;gap:12px;align-items:flex-start;
+  padding:12px 16px;border-bottom:1px solid var(--border);
+  transition:background 0.1s;cursor:pointer;
+  animation:slideIn 0.3s ease;
+}
+.feed-item:hover{background:rgba(255,255,255,0.02);}
+.feed-item:last-child{border-bottom:none;}
+
+@keyframes slideIn{from{opacity:0;transform:translateX(-8px);}to{opacity:1;transform:translateX(0);}}
+
+.fi-icon{
+  width:34px;height:34px;border-radius:9px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:0.9rem;flex-shrink:0;
+}
+
+.fi-title{font-size:0.78rem;font-weight:600;color:var(--white);margin-bottom:2px;}
+.fi-msg{font-size:0.7rem;color:var(--muted);line-height:1.4;}
+.fi-time{font-family:'IBM Plex Mono',monospace;font-size:0.6rem;color:var(--muted);margin-top:4px;}
+
+.live-dot{width:6px;height:6px;border-radius:50%;background:var(--laundry);box-shadow:0 0 6px var(--laundry);animation:pulse 1.5s infinite;display:inline-block;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.4;}}
+
+/* ── MOBILE PHONE ── */
+.phone{
+  width:300px;flex-shrink:0;
+  background:var(--s1);
+  border:1px solid var(--border);
+  border-radius:28px;
+  overflow:hidden;
+  box-shadow:0 20px 60px rgba(0,0,0,0.6);
+}
+
+.phone-bar{
+  background:var(--s2);
+  padding:14px 16px 12px;
+  border-bottom:1px solid var(--border);
+}
+
+.phone-time{font-family:'IBM Plex Mono',monospace;font-size:0.65rem;color:var(--muted);margin-bottom:10px;display:flex;justify-content:space-between;}
+.phone-greet{font-family:'Bebas Neue',sans-serif;font-size:1.2rem;letter-spacing:0.05em;color:var(--white);}
+.phone-sub{font-size:0.65rem;color:var(--muted);margin-top:1px;}
+
+.phone-body{padding:12px;display:flex;flex-direction:column;gap:8px;max-height:440px;overflow-y:auto;}
+.phone-notif{
+  background:var(--s2);border:1px solid var(--border);
+  border-radius:12px;padding:11px;
+  display:flex;gap:10px;
+  animation:slideIn 0.3s ease;
+}
+.phone-notif.fresh{border-color:rgba(167,139,250,0.4);background:rgba(167,139,250,0.05);}
+
+.pn-icon{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:0.85rem;flex-shrink:0;}
+.pn-title{font-size:0.73rem;font-weight:700;color:var(--white);margin-bottom:2px;}
+.pn-msg{font-size:0.65rem;color:var(--muted);line-height:1.4;}
+.pn-time{font-size:0.58rem;color:var(--muted);margin-top:3px;font-family:'IBM Plex Mono',monospace;}
+
+.phone-nav{
+  display:flex;background:var(--s2);
+  border-top:1px solid var(--border);
+  padding:8px 0 4px;
+}
+.pnav-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:0.55rem;color:var(--muted);cursor:pointer;}
+.pnav-item.active{color:var(--student);}
+.pnav-item .pni{font-size:1rem;}
+
+/* ── GROUPS CARD ── */
+.group-pill{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:10px 14px;
+  background:var(--s1);border:1px solid var(--border);
+  border-radius:10px;margin-bottom:8px;
+  transition:border-color 0.15s;cursor:pointer;
+}
+.group-pill:hover{border-color:var(--border2);}
+.group-pill:last-child{margin-bottom:0;}
+
+.gp-left{display:flex;align-items:center;gap:10px;}
+.gp-icon{font-size:1.1rem;}
+.gp-name{font-size:0.78rem;font-weight:600;color:var(--white);}
+.gp-type{font-size:0.62rem;color:var(--muted);margin-top:1px;}
+.gp-count{font-family:'IBM Plex Mono',monospace;font-size:0.65rem;color:var(--muted);}
+
+/* ── TOAST ── */
+.toast-wrap{position:fixed;bottom:20px;right:20px;display:flex;flex-direction:column;gap:8px;z-index:999;}
+.toast{
+  background:var(--s2);border:1px solid var(--border);
+  border-left:3px solid var(--teacher);
+  border-radius:10px;padding:12px 14px;
+  min-width:260px;
+  box-shadow:0 8px 24px rgba(0,0,0,0.5);
+  display:flex;gap:9px;align-items:flex-start;
+  animation:toastIn 0.25s ease;
+}
+@keyframes toastIn{from{opacity:0;transform:translateX(15px);}to{opacity:1;transform:translateX(0);}}
+.toast.ok{border-left-color:var(--laundry);}
+.toast.warn{border-left-color:var(--mess);}
+.toast.err{border-left-color:#f87171;}
+.t-ico{font-size:1rem;flex-shrink:0;}
+.t-title{font-size:0.78rem;font-weight:700;color:var(--white);}
+.t-msg{font-size:0.68rem;color:var(--muted);margin-top:1px;}
+
+/* ── RBAC BLOCKED ── */
+.blocked{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  min-height:200px;gap:10px;
+  opacity:0.5;
+}
+.blocked-icon{font-size:2.5rem;}
+.blocked-text{font-size:0.8rem;color:var(--muted);text-align:center;}
+
+/* ── MESS SUMMARY ── */
+.meal-row{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:10px 0;border-bottom:1px solid var(--border);
+}
+.meal-row:last-child{border-bottom:none;}
+.meal-name{font-size:0.8rem;font-weight:500;color:var(--white);}
+.meal-check{font-size:0.75rem;}
+
+/* scrollbar */
+::-webkit-scrollbar{width:3px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px;}
+
+/* two/three col helpers */
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;}
+.mt{margin-top:16px;}
+
+.section-divider{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:0.58rem;color:var(--muted);
+  text-transform:uppercase;letter-spacing:0.12em;
+  margin:20px 0 12px;
+  display:flex;align-items:center;gap:10px;
+}
+.section-divider::after{content:'';flex:1;height:1px;background:var(--border);}
+</style>
+</head>
+<body>
+
+<!-- ══════════ LOGIN ══════════ -->
+<div id="loginScreen">
+  <div class="login-box">
+    <div class="login-logo">SMART CAMPUS</div>
+    <div class="login-sub">Role-based access control · Select your role to preview</div>
+
+    <label class="login-label">Select Role</label>
+    <div class="role-grid" id="roleGrid">
+      <div class="role-card" data-role="SUPER_ADMIN" onclick="selectRole(this)">
+        <div class="role-icon">🛡️</div>
+        <div class="role-name">Super Admin</div>
+        <div class="role-desc">Full access</div>
+      </div>
+      <div class="role-card" data-role="TEACHER" onclick="selectRole(this)">
+        <div class="role-icon">👩‍🏫</div>
+        <div class="role-name">Teacher</div>
+        <div class="role-desc">Academic events</div>
+      </div>
+      <div class="role-card" data-role="BUS_ADMIN" onclick="selectRole(this)">
+        <div class="role-icon">🚌</div>
+        <div class="role-name">Bus Admin</div>
+        <div class="role-desc">Transport events</div>
+      </div>
+      <div class="role-card" data-role="LAUNDRY_ADMIN" onclick="selectRole(this)">
+        <div class="role-icon">🧺</div>
+        <div class="role-name">Laundry Admin</div>
+        <div class="role-desc">Laundry events</div>
+      </div>
+      <div class="role-card" data-role="MESS_ADMIN" onclick="selectRole(this)">
+        <div class="role-icon">🍽️</div>
+        <div class="role-name">Mess Admin</div>
+        <div class="role-desc">Mess events</div>
+      </div>
+      <div class="role-card" data-role="STUDENT" onclick="selectRole(this)">
+        <div class="role-icon">🎓</div>
+        <div class="role-name">Student</div>
+        <div class="role-desc">View only</div>
+      </div>
+    </div>
+
+    <button class="login-btn" id="loginBtn" onclick="doLogin()">Continue →</button>
+  </div>
+</div>
+
+<!-- ══════════ APP ══════════ -->
+<div id="appShell">
+
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div class="topbar-left">
+      <div class="app-logo">SMART CAMPUS</div>
+      <div class="role-pill" id="rolePill"></div>
+    </div>
+    <div class="topbar-right">
+      <div class="tb-btn">🔔<div class="tb-badge" id="notifBadge">0</div></div>
+      <div class="user-chip">
+        <div class="user-avatar" id="userAvatar"></div>
+        <div class="user-name" id="userName"></div>
+      </div>
+      <div class="tb-btn" onclick="logout()" title="Logout">⏏️</div>
+    </div>
+  </div>
+
+  <!-- LAYOUT -->
+  <div class="app-layout">
+    <div class="sidebar" id="sidebar"></div>
+    <div class="content" id="mainContent"></div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast-wrap" id="toastWrap"></div>
+
+<script>
+// ── CONFIG ──
+const ROLES = {
+  SUPER_ADMIN:   { label:'Super Admin',   icon:'🛡️', color:'var(--super)',   name:'Arjun Mehta' },
+  TEACHER:       { label:'Teacher',       icon:'👩‍🏫', color:'var(--teacher)', name:'Prof. Smith' },
+  BUS_ADMIN:     { label:'Bus Admin',     icon:'🚌', color:'var(--bus)',     name:'Ravi Kumar' },
+  LAUNDRY_ADMIN: { label:'Laundry Admin', icon:'🧺', color:'var(--laundry)', name:'Priya Nair' },
+  MESS_ADMIN:    { label:'Mess Admin',    icon:'🍽️', color:'var(--mess)',    name:'Suresh Babu' },
+  STUDENT:       { label:'Student',       icon:'🎓', color:'var(--student)', name:'John Doe' },
+};
+
+let currentRole = null;
+let notifCount  = 0;
+let feedData    = [];
+
+// ── LOGIN ──
+function selectRole(el) {
+  document.querySelectorAll('.role-card').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  currentRole = el.dataset.role;
+  const r = ROLES[currentRole];
+  const btn = document.getElementById('loginBtn');
+  btn.style.background = r.color;
+  btn.textContent = `Login as ${r.label} →`;
+}
+
+function doLogin() {
+  if (!currentRole) { toast('warn','Select a role','Please pick a role to continue'); return; }
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('appShell').style.display    = 'block';
+  buildShell(currentRole);
+  toast('ok','Logged in', `Welcome, ${ROLES[currentRole].name}`);
+}
+
+function logout() {
+  currentRole = null;
+  document.getElementById('loginScreen').style.display = 'flex';
+  document.getElementById('appShell').style.display    = 'none';
+  document.querySelectorAll('.role-card').forEach(c => c.classList.remove('selected'));
+  document.getElementById('loginBtn').style.background = 'var(--super)';
+  document.getElementById('loginBtn').textContent = 'Continue →';
+  notifCount = 0; feedData = [];
+}
+
+// ── SHELL ──
+function buildShell(role) {
+  const r = ROLES[role];
+
+  // topbar
+  document.getElementById('rolePill').style.color   = r.color;
+  document.getElementById('rolePill').innerHTML      = `${r.icon} ${r.label}`;
+  document.getElementById('userAvatar').style.background = r.color;
+  document.getElementById('userAvatar').textContent  = r.name.split(' ').map(w=>w[0]).join('').slice(0,2);
+  document.getElementById('userName').textContent    = r.name;
+
+  buildSidebar(role);
+  buildDashboard(role);
+}
+
+// ── SIDEBAR ──
+function buildSidebar(role) {
+  const sb = document.getElementById('sidebar');
+  const menus = {
+    SUPER_ADMIN: [
+      { section:'Overview' },
+      { icon:'⚡', label:'Live Feed',   id:'feed',      active:true },
+      { icon:'📊', label:'Analytics',  id:'analytics' },
+      { section:'Domains' },
+      { icon:'🚌', label:'Transport',  id:'transport', badge:'2' },
+      { icon:'📚', label:'Academics',  id:'academics' },
+      { icon:'🧺', label:'Laundry',    id:'laundry',   badge:'1' },
+      { icon:'🍽️', label:'Mess',       id:'mess' },
+      { section:'Admin' },
+      { icon:'👥', label:'Groups',     id:'groups' },
+      { icon:'👤', label:'Users',      id:'users' },
+    ],
+    TEACHER: [
+      { section:'My Dashboard' },
+      { icon:'📊', label:'Overview',   id:'feed',      active:true },
+      { section:'My Courses' },
+      { icon:'📚', label:'CS101',      id:'cs101' },
+      { icon:'📖', label:'CS202',      id:'cs202' },
+      { section:'Actions' },
+      { icon:'⚡', label:'Fire Event', id:'academics', badge:'NEW' },
+    ],
+    BUS_ADMIN: [
+      { section:'My Dashboard' },
+      { icon:'📊', label:'Overview',   id:'feed',      active:true },
+      { section:'My Bus' },
+      { icon:'🚌', label:'BUS_052',    id:'bus052' },
+      { section:'Actions' },
+      { icon:'⚡', label:'Fire Event', id:'transport', badge:'NEW' },
+    ],
+    LAUNDRY_ADMIN: [
+      { section:'My Dashboard' },
+      { icon:'📊', label:'Overview',   id:'feed',      active:true },
+      { section:'Block A' },
+      { icon:'🧺', label:'Machines',   id:'laundry' },
+      { section:'Actions' },
+      { icon:'⚡', label:'Fire Event', id:'fire', badge:'NEW' },
+    ],
+    MESS_ADMIN: [
+      { section:'My Dashboard' },
+      { icon:'📊', label:'Overview',   id:'feed',      active:true },
+      { section:'Today' },
+      { icon:'🍽️', label:'Check-ins',  id:'checkins' },
+      { icon:'💰', label:'Refunds',    id:'refunds' },
+      { section:'Actions' },
+      { icon:'⚡', label:'Fire Event', id:'fire', badge:'NEW' },
+    ],
+    STUDENT: [
+      { section:'My App' },
+      { icon:'🏠', label:'Home',       id:'home',      active:true },
+      { icon:'🔔', label:'Alerts',     id:'alerts', badge:'4' },
+      { icon:'👥', label:'My Groups',  id:'mygroups' },
+      { icon:'🍽️', label:'Mess',       id:'messsummary' },
+    ],
+  };
+
+  const items = menus[role] || menus.STUDENT;
+  sb.innerHTML = items.map(item => {
+    if (item.section) return `<div class="sb-section">${item.section}</div>`;
+    return `<div class="sb-item ${item.active?'active':''}" onclick="sbClick(this,'${item.id}')">
+      <span class="si">${item.icon}</span>${item.label}
+      ${item.badge ? `<span class="sb-badge">${item.badge}</span>` : ''}
+    </div>`;
+  }).join('');
+}
+
+function sbClick(el, id) {
+  document.querySelectorAll('.sb-item').forEach(i=>i.classList.remove('active'));
+  el.classList.add('active');
+  // for simplicity just show toast — in real app would route
+  toast('ok', `Navigated to ${el.textContent.trim()}`, 'Section loaded');
+}
+
+// ── DASHBOARDS ──
+function buildDashboard(role) {
+  const c = document.getElementById('mainContent');
+  switch(role) {
+    case 'SUPER_ADMIN':   c.innerHTML = dashSuperAdmin(); break;
+    case 'TEACHER':       c.innerHTML = dashTeacher();    break;
+    case 'BUS_ADMIN':     c.innerHTML = dashBus();        break;
+    case 'LAUNDRY_ADMIN': c.innerHTML = dashLaundry();    break;
+    case 'MESS_ADMIN':    c.innerHTML = dashMess();       break;
+    case 'STUDENT':       c.innerHTML = dashStudent();    break;
+  }
+}
+
+// ── SUPER ADMIN ──
+function dashSuperAdmin() {
+  return `
+  <div class="dash-header">
+    <div>
+      <div class="dash-title">SYSTEM OVERVIEW</div>
+      <div class="dash-sub">All domains · All groups · Full control</div>
+    </div>
+    <div class="dash-date">
+      <div style="color:var(--white);font-weight:600;">Wednesday</div>
+      <div>March 11, 2026</div>
+    </div>
+  </div>
+
+  <div class="stats cols4">
+    <div class="stat"><div class="stat-accent" style="background:var(--super)"></div><div class="stat-emoji">👥</div><div class="stat-val">247</div><div class="stat-lbl">Total Students</div></div>
+    <div class="stat"><div class="stat-accent" style="background:var(--teacher)"></div><div class="stat-emoji">📤</div><div class="stat-val" id="sa-sent">0</div><div class="stat-lbl">Events Today</div></div>
+    <div class="stat"><div class="stat-accent" style="background:var(--laundry)"></div><div class="stat-emoji">⚡</div><div class="stat-val" id="sa-queue">0</div><div class="stat-lbl">Queue Depth</div></div>
+    <div class="stat"><div class="stat-accent" style="background:var(--bus)"></div><div class="stat-emoji">👁️</div><div class="stat-val">5</div><div class="stat-lbl">Active Roles</div></div>
+  </div>
+
+  <div class="g2">
+    <div>
+      <div class="section-divider">Fire Event (any domain)</div>
+      <div class="card">
+        <div class="card-header"><div class="card-title">⚡ Fire Event</div></div>
+        <div class="card-body">
+          <div class="form-grid">
+            <div><label class="fl">Domain</label>
+              <select class="fs" id="sa-domain" onchange="updateSATypes()">
+                <option value="transport">transport</option>
+                <option value="academics">academics</option>
+                <option value="laundry">laundry</option>
+                <option value="mess">mess</option>
+              </select>
+            </div>
+            <div><label class="fl">Event Type</label>
+              <select class="fs" id="sa-type">
+                <option>BUS_DELAYED</option><option>BUS_CANCELLED</option><option>BUS_ARRIVED</option>
+              </select>
+            </div>
+            <div><label class="fl">Entity ID</label><input class="fi" id="sa-entity" value="BUS_052"/></div>
+            <div><label class="fl">Group ID</label>
+              <select class="fs" id="sa-group">
+                <option value="GRP001">GRP001 — CS101</option>
+                <option value="GRP002">GRP002 — CS202</option>
+                <option value="GRP003">GRP003 — Bus 052</option>
+                <option value="GRP004">GRP004 — Block A</option>
+                <option value="GRP005">GRP005 — Main Mess</option>
+              </select>
+            </div>
+            <div class="form-full"><label class="fl">Reason / Details</label><input class="fi" id="sa-reason" placeholder="Optional details..."/></div>
+          </div>
+          <button class="fire-btn" style="background:var(--super)" onclick="fireFromSA()">⚡ Fire Event</button>
+        </div>
+      </div>
+
+      <div class="section-divider">User Roles</div>
+      <div class="card">
+        <table class="tbl">
+          <tr><th>User</th><th>Role</th><th>Groups</th><th>Status</th></tr>
+          <tr><td><strong>Prof. Smith</strong></td><td><span class="tag blue">TEACHER</span></td><td>GRP001, GRP002</td><td><span class="tag green">● Active</span></td></tr>
+          <tr><td><strong>Ravi Kumar</strong></td><td><span class="tag yellow">BUS_ADMIN</span></td><td>GRP003</td><td><span class="tag green">● Active</span></td></tr>
+          <tr><td><strong>Priya Nair</strong></td><td><span class="tag green">LAUNDRY</span></td><td>GRP004</td><td><span class="tag green">● Active</span></td></tr>
+          <tr><td><strong>Suresh Babu</strong></td><td><span class="tag yellow">MESS</span></td><td>GRP005</td><td><span class="tag green">● Active</span></td></tr>
+        </table>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-divider">Live Feed</div>
+      <div class="card" style="height:520px;overflow:hidden;display:flex;flex-direction:column;">
+        <div class="card-header">
+          <div class="card-title"><span class="live-dot"></span> Event Stream</div>
+          <span style="font-family:'IBM Plex Mono',monospace;font-size:0.6rem;color:var(--muted)" id="sa-feedcount">0 events</span>
+        </div>
+        <div style="overflow-y:auto;flex:1;" id="sa-feed">
+          <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:var(--muted);gap:8px;">
+            <div style="font-size:2rem;opacity:0.3;">📡</div>
+            <div style="font-size:0.75rem;">Fire an event to see it here</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+// ── TEACHER ──
+function dashTeacher() {
+  return `
+  <div class="dash-header">
+    <div>
+      <div class="dash-title" style="color:var(--teacher)">TEACHER DASHBOARD</div>
+      <div class="dash-sub">Prof. Smith · CSE Dept · CS101, CS202</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <span class="tag blue">👩‍🏫 TEACHER</span>
+      <span class="tag muted">assignedGroups: GRP001, GRP002</span>
+    </div>
+  </div>
+
+  <div class="stats cols3">
+    <div class="stat"><div class="stat-accent" style="background:var(--teacher)"></div><div class="stat-emoji">📚</div><div class="stat-val">2</div><div class="stat-lbl">My Courses</div></div>
+    <div class="stat"><div class="stat-accent" style="background:var(--teacher)"></div><div class="stat-emoji">👥</div><div class="stat-val">117</div><div class="stat-lbl">My Students</div></div>
+    <div class="stat"><div class="stat-accent" style="background:var(--teacher)"></div><div class="stat-emoji">📤</div><div class="stat-val" id="t-sent">0</div><div class="stat-lbl">Events Fired</div></div>
+  </div>
+
+  <div class="g2">
+    <div>
+      <div class="section-divider">Fire Academic Event</div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">⚡ Fire Event</div>
+          <span class="tag blue" style="font-size:0.6rem;">academics domain only</span>
+        </div>
+        <div class="card-body">
+          <div class="form-grid">
+            <div><label class="fl">Event Type</label>
+              <select class="fs" id="t-type">
+                <option value="CLASS_CANCELLED">CLASS_CANCELLED</option>
+                <option value="CLASS_RESCHEDULED">CLASS_RESCHEDULED</option>
+                <option value="EXAM_POSTPONED">EXAM_POSTPONED</option>
+              </select>
+            </div>
+            <div><label class="fl">My Course (Group)</label>
+              <select class="fs" id="t-group">
+                <option value="GRP001">GRP001 — CS101 (62 students)</option>
+                <option value="GRP002">GRP002 — CS202 (55 students)</option>
+              </select>
+            </div>
+            <div><label class="fl">New Hall</label><input class="fi" id="t-hall" placeholder="e.g. LH3"/></div>
+            <div><label class="fl">New Time</label><input class="fi" id="t-time" placeholder="e.g. 3PM Friday"/></div>
+            <div class="form-full"><label class="fl">Reason</label><input class="fi" id="t-reason" placeholder="e.g. Personal leave..."/></div>
+          </div>
+          <div style="margin-bottom:10px;padding:8px 12px;background:rgba(56,189,248,0.06);border:1px solid rgba(56,189,248,0.15);border-radius:8px;">
+            <div style="font-size:0.65rem;color:var(--teacher);">🔒 RBAC: You can only notify students in GRP001 or GRP002</div>
+          </div>
+          <button class="fire-btn" style="background:var(--teacher)" onclick="fireFromTeacher()">⚡ Notify My Students</button>
+        </div>
+      </div>
+
+      <div style="margin-top:16px;padding:14px;background:var(--s2);border:1px solid rgba(248,113,113,0.2);border-radius:12px;">
+        <div style="font-size:0.72rem;font-weight:600;color:#f87171;margin-bottom:6px;">🚫 Access Denied Routes</div>
+        <div style="font-size:0.68rem;color:var(--muted);line-height:1.8;">
+          POST /api/transport/event → 403 Forbidden<br>
+          POST /api/laundry/event → 403 Forbidden<br>
+          POST /api/mess/event → 403 Forbidden<br>
+          GET /api/groups (all) → 403 Forbidden
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-divider">My Courses</div>
+      <div class="card">
+        <div class="card-body">
+          <div class="group-pill">
+            <div class="gp-left"><div class="gp-icon">📚</div><div><div class="gp-name">CS101 — Data Structures</div><div class="gp-type">GRP001 · Sem 4 · CSE</div></div></div>
+            <div><div class="gp-count">62 students</div><span class="tag green" style="margin-top:4px;display:block;text-align:right;">● Active</span></div>
+          </div>
+          <div class="group-pill">
+            <div class="gp-left"><div class="gp-icon">📖</div><div><div class="gp-name">CS202 — Operating Systems</div><div class="gp-type">GRP002 · Sem 4 · CSE</div></div></div>
+            <div><div class="gp-count">55 students</div><span class="tag green" style="margin-top:4px;display:block;text-align:right;">● Active</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-divider">Recent Events Fired</div>
+      <div class="card" style="max-height:220px;overflow-y:auto;" id="t-feed">
+        <div style="padding:20px;text-align:center;color:var(--muted);font-size:0.75rem;">No events yet</div>
+      </div>
+    </div>
+  </div>`;
+}
+
+// ── BUS ADMIN ──
+function dashBus() {
+  return `
+  <div class="dash-header">
+    <div>
+      <div class="dash-title" style="color:var(--bus)">BUS ADMIN DASHBOARD</div>
+      <div class="dash-sub">Ravi Kumar · BUS_052 · Route 42</div>
+    </div>
+    <span class="tag yellow">🚌 BUS_ADMIN · assignedGroup: GRP003</span>
+  </div>
+
+  <div class="stats cols3">
+    <div class="stat"><div class="stat-accent" style="background:var(--bus)"></div><div class="stat-emoji">🚌</div><div class="stat-val">1</div><div class="stat-lbl">My Bus</div></div>
+    <div class="stat"><div class="stat-accent" style="background:var(--bus)"></div><div class="stat-emoji">👥</div><div class="stat-val">34</div><div class="stat-lbl">Subscribed Students</div></div>
+    <div class="stat"><div class="stat-accent" style="background:var(--bus)"></div><div class="stat-emoji">📤</div><div class="stat-val" id="b-sent">0</div><div class="stat-lbl">Events Fired</div></div>
+  </div>
+
+  <div class="g2">
+    <div>
+      <div class="section-divider">Fire Transport Event</div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">⚡ Fire Event</div>
+          <span class="tag yellow" style="font-size:0.6rem;">transport domain only</span>
+        </div>
+        <div class="card-body">
+          <div class="form-grid">
+            <div><label class="fl">Event Type</label>
+              <select class="fs" id="b-type">
+                <option value="BUS_DELAYED">BUS_DELAYED</option>
+                <option value="BUS_CANCELLED">BUS_CANCELLED</option>
+                <option value="BUS_ARRIVED">BUS_ARRIVED</option>
+              </select>
+            </div>
+            <div><label class="fl">Bus (locked to yours)</label>
+              <select class="fs" disabled>
+                <option>BUS_052 — Route 42</option>
+              </select>
+            </div>
+            <div class="form-full"><label class="fl">Reason</label><input class="fi" id="b-reason" placeholder="e.g. Heavy traffic on Ring Road..."/></div>
+          </div>
+          <div style="margin-bottom:10px;padding:8px 12px;background:rgba(251,146,60,0.06);border:1px solid rgba(251,146,60,0.15);border-radius:8px;">
+            <div style="font-size:0.65rem;color:var(--bus);">🔒 RBAC: Notification goes only to 34 students subscribed to BUS_052</div>
+          </div>
+          <button class="fire-btn" style="background:var(--bus)" onclick="fireFromBus()">⚡ Notify Students</button>
+        </div>
+      </div>
+
+      <div style="margin-top:16px;padding:14px;background:var(--s2);border:1px solid rgba(248,113,113,0.2);border-radius:12px;">
+        <div style="font-size:0.72rem;font-weight:600;color:#f87171;margin-bottom:6px;">🚫 Access Denied</div>
+        <div style="font-size:0.68rem;color:var(--muted);line-height:1.8;">
+          POST /api/academics/event → 403<br>
+          POST /api/laundry/event → 403<br>
+          POST /api/mess/event → 403<br>
+          Cannot fire events for BUS_018 or BUS_007
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-divider">BUS_052 Status</div>
+      <div class="card">
+        <div class="card-body">
+          <div style="display:flex;justify-content:space-between;margin-bottom:12px;">
+            <div><div style="font-size:0.7rem;color:var(--muted);">Route</div><div style="font-weight:700;color:var(--white);">Route 42 · Hostel → Campus</div></div>
+            <span class="tag green">● On Route</span>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px;">
+            <div style="background:var(--s1);border:1px solid var(--border);border-radius:8px;padding:10px;">
+              <div style="font-size:0.65rem;color:var(--muted);">Scheduled</div>
+              <div style="font-weight:700;color:var(--white);">8:30 AM</div>
+            </div>
+            <div style="background:var(--s1);border:1px solid var(--border);border-radius:8px;padding:10px;">
+              <div style="font-size:0.65rem;color:var(--muted);">Subscribed</div>
+              <div style="font-weight:700;color:var(--white);">34 students</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-divider">Recent Events</div>
+      <div class="card" style="max-height:240px;overflow-y:auto;" id="b-feed">
+        <div style="padding:20px;text-align:center;color:var(--muted);font-size:0.75rem;">No events yet</div>
+      </div>
+    </div>
+  </div>`;
+}
+
+// ── LAUNDRY ADMIN ──
+function dashLaundry() {
+  return `
+  <div class="dash-header">
+    <div>
+      <div class="dash-title" style="color:var(--laundry)">LAUNDRY DASHBOARD</div>
+      <div class="dash-sub">Priya Nair · Block A · 3 machines</div>
+    </div>
+    <span class="tag green">🧺 LAUNDRY_ADMIN · assignedGroup: GRP004</span>
+  </div>
+
+  <div class="stats cols3">
+    <div class="stat"><div class="stat-accent" style="background:var(--laundry)"></div><div class="stat-emoji">🧺</div><div class="stat-val">3</div><div class="stat-lbl">My Machines</div></div>
+    <div class="stat"><div class="stat-accent" style="background:var(--laundry)"></div><div class="stat-emoji">👥</div><div class="stat-val">45</div><div class="stat-lbl">Block A Students</div></div>
+    <div class="stat"><div class="stat-accent" style="background:var(--laundry)"></div><div class="stat-emoji">📤</div><div class="stat-val" id="l-sent">0</div><div class="stat-lbl">Notifications Sent</div></div>
+  </div>
+
+  <div class="g2">
+    <div>
+      <div class="section-divider">Fire Laundry Event</div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">⚡ Fire Event</div>
+          <span class="tag green" style="font-size:0.6rem;">laundry domain only</span>
+        </div>
+        <div class="card-body">
+          <div class="form-grid">
+            <div><label class="fl">Event Type</label>
+              <select class="fs" id="l-type">
+                <option value="WASH_MACHINE_COMPLETED">WASH_MACHINE_COMPLETED</option>
+                <option value="WASH_SLOT_CANCELLED">WASH_SLOT_CANCELLED</option>
+                <option value="WASH_MACHINE_STARTED">WASH_MACHINE_STARTED</option>
+                <option value="WASH_SLOT_BOOKED">WASH_SLOT_BOOKED</option>
+              </select>
+            </div>
+            <div><label class="fl">Machine</label>
+              <select class="fs" id="l-machine">
+                <option>Machine 1</option><option>Machine 2</option><option>Machine 3</option>
+              </select>
+            </div>
+          </div>
+          <div style="margin-bottom:10px;padding:8px 12px;background:rgba(52,211,153,0.06);border:1px solid rgba(52,211,153,0.15);border-radius:8px;">
+            <div style="font-size:0.65rem;color:var(--laundry);">🔒 RBAC: Notifies 45 students in Block A only</div>
+          </div>
+          <button class="fire-btn" style="background:var(--laundry)" onclick="fireFromLaundry()">⚡ Notify Block A</button>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-divider">Machine Status</div>
+      <div class="card">
+        <div class="card-body" style="display:flex;flex-direction:column;gap:10px;">
+          ${['Machine 1','Machine 2','Machine 3'].map((m,i) => `
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--s1);border:1px solid var(--border);border-radius:10px;">
+            <div style="display:flex;align-items:center;gap:10px;">
+              <span style="font-size:1.1rem;">🧺</span>
+              <div><div style="font-size:0.78rem;font-weight:600;color:var(--white);">${m}</div>
+              <div style="font-size:0.62rem;color:var(--muted);">Block A</div></div>
+            </div>
+            <span class="tag ${i===1?'yellow':'green'}">${i===1?'In Use':'● Free'}</span>
+          </div>`).join('')}
+        </div>
+      </div>
+
+      <div class="section-divider">Recent Events</div>
+      <div class="card" style="max-height:200px;overflow-y:auto;" id="l-feed">
+        <div style="padding:20px;text-align:center;color:var(--muted);font-size:0.75rem;">No events yet</div>
+      </div>
+    </div>
+  </div>`;
+}
+
+// ── MESS ADMIN ──
+function dashMess() {
+  return `
+  <div class="dash-header">
+    <div>
+      <div class="dash-title" style="color:var(--mess)">MESS DASHBOARD</div>
+      <div class="dash-sub">Suresh Babu · Main Mess · All students</div>
+    </div>
+    <span class="tag yellow">🍽️ MESS_ADMIN · assignedGroup: GRP005</span>
+  </div>
+
+  <div class="stats cols3">
+    <div class="stat"><div class="stat-accent" style="background:var(--mess)"></div><div class="stat-emoji">✅</div><div class="stat-val">183</div><div class="stat-lbl">Checked In Today</div></div>
+    <div class="stat"><div class="stat-accent" style="background:var(--mess)"></div><div class="stat-emoji">❌</div><div class="stat-val">64</div><div class="stat-lbl">Absent Today</div></div>
+    <div class="stat"><div class="stat-accent" style="background:var(--mess)"></div><div class="stat-emoji">💸</div><div class="stat-val" id="m-sent">0</div><div class="stat-lbl">Refunds Processed</div></div>
+  </div>
+
+  <div class="g2">
+    <div>
+      <div class="section-divider">Fire Mess Event</div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">⚡ Fire Event</div>
+          <span class="tag yellow" style="font-size:0.6rem;">mess domain only</span>
+        </div>
+        <div class="card-body">
+          <div class="form-grid">
+            <div><label class="fl">Event Type</label>
+              <select class="fs" id="m-type">
+                <option value="MESS_CHECKIN">MESS_CHECKIN</option>
+                <option value="MESS_ABSENT">MESS_ABSENT</option>
+                <option value="MESS_REFUND_REQUESTED">MESS_REFUND_REQUESTED</option>
+                <option value="MESS_REFUND_PROCESSED">MESS_REFUND_PROCESSED</option>
+              </select>
+            </div>
+            <div><label class="fl">Student</label>
+              <select class="fs" id="m-student">
+                <option value="STU001">STU001 — John Doe</option>
+                <option value="STU002">STU002 — Alice Kumar</option>
+                <option value="STU003">STU003 — Bob Singh</option>
+              </select>
+            </div>
+            <div><label class="fl">Meal Type</label>
+              <select class="fs" id="m-meal"><option>breakfast</option><option>lunch</option><option>dinner</option></select>
+            </div>
+            <div><label class="fl">Refund (₹)</label>
+              <input class="fi" id="m-refund" placeholder="e.g. 1500"/>
+            </div>
+          </div>
+          <div style="margin-bottom:10px;padding:8px 12px;background:rgba(251,191,36,0.06);border:1px solid rgba(251,191,36,0.15);border-radius:8px;">
+            <div style="font-size:0.65rem;color:var(--mess);">🔒 RBAC: Notifies the specific student directly (not a group broadcast)</div>
+          </div>
+          <button class="fire-btn" style="background:var(--mess);color:#000" onclick="fireFromMess()">⚡ Send Notification</button>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-divider">Today's Check-ins</div>
+      <div class="card">
+        <table class="tbl">
+          <tr><th>Student</th><th>Breakfast</th><th>Lunch</th><th>Dinner</th></tr>
+          <tr><td>John Doe</td><td>✅</td><td>✅</td><td>—</td></tr>
+          <tr><td>Alice Kumar</td><td>—</td><td>✅</td><td>✅</td></tr>
+          <tr><td>Bob Singh</td><td>✅</td><td>—</td><td>—</td></tr>
+          <tr><td>Meera Iyer</td><td>✅</td><td>✅</td><td>✅</td></tr>
+          <tr><td>Dev Patel</td><td>—</td><td>—</td><td>—</td></tr>
+        </table>
+      </div>
+
+      <div class="section-divider">Recent Events</div>
+      <div class="card" style="max-height:160px;overflow-y:auto;" id="m-feed">
+        <div style="padding:20px;text-align:center;color:var(--muted);font-size:0.75rem;">No events yet</div>
+      </div>
+    </div>
+  </div>`;
+}
+
+// ── STUDENT ──
+function dashStudent() {
+  return `
+  <div style="display:flex;gap:32px;flex-wrap:wrap;justify-content:center;padding:8px 0;">
+
+    <!-- phone -->
+    <div>
+      <div style="text-align:center;margin-bottom:12px;">
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:1.1rem;letter-spacing:0.06em;color:var(--white);">STUDENT VIEW</div>
+        <div style="font-size:0.7rem;color:var(--muted);">John Doe · CS2021045 · Read only</div>
+      </div>
+      <div class="phone">
+        <div class="phone-bar">
+          <div class="phone-time"><span>9:41 AM</span><span>📶🔋</span></div>
+          <div class="phone-greet">GOOD MORNING, JOHN 👋</div>
+          <div class="phone-sub">4 notifications today</div>
+        </div>
+        <div class="phone-body" id="student-phone">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:4px;">
+            ${[['🚌','My Bus'],['📚','Classes'],['🧺','Laundry'],['🍽️','Mess']].map(([i,l])=>`
+            <div style="background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:10px;text-align:center;cursor:pointer;">
+              <div style="font-size:1.1rem;margin-bottom:4px;">${i}</div>
+              <div style="font-size:0.6rem;color:var(--muted);">${l}</div>
+            </div>`).join('')}
+          </div>
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:0.58rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:2px;">Notifications</div>
+          <div class="phone-notif fresh">
+            <div class="pn-icon" style="background:rgba(251,146,60,0.15);">🚌</div>
+            <div><div class="pn-title">Bus Delayed ⏱️</div><div class="pn-msg">BUS_052 running 10 mins late.</div><div class="pn-time">2 mins ago</div></div>
+          </div>
+          <div class="phone-notif">
+            <div class="pn-icon" style="background:rgba(56,189,248,0.15);">📚</div>
+            <div><div class="pn-title">Class Cancelled 📚</div><div class="pn-msg">CS101 at 2PM cancelled today.</div><div class="pn-time">1 hr ago</div></div>
+          </div>
+          <div class="phone-notif">
+            <div class="pn-icon" style="background:rgba(52,211,153,0.15);">🧺</div>
+            <div><div class="pn-title">Wash Done 🧺</div><div class="pn-msg">Collect from Block A Machine 2.</div><div class="pn-time">3 hrs ago</div></div>
+          </div>
+          <div class="phone-notif">
+            <div class="pn-icon" style="background:rgba(251,191,36,0.15);">🍽️</div>
+            <div><div class="pn-title">Mess Check-in ✅</div><div class="pn-msg">Lunch at 12:45 PM recorded.</div><div class="pn-time">12:45 PM</div></div>
+          </div>
+        </div>
+        <div class="phone-nav">
+          <div class="pnav-item active"><div class="pni">🏠</div>Home</div>
+          <div class="pnav-item"><div class="pni">🔔</div>Alerts</div>
+          <div class="pnav-item"><div class="pni">👤</div>Profile</div>
+          <div class="pnav-item"><div class="pni">⚙️</div>Settings</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- groups + mess -->
+    <div style="flex:1;min-width:280px;max-width:420px;">
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:1.1rem;letter-spacing:0.06em;color:var(--white);margin-bottom:4px;">MY GROUPS</div>
+      <div style="font-size:0.72rem;color:var(--muted);margin-bottom:14px;">John subscribes to these channels</div>
+
+      <div class="card" style="margin-bottom:16px;">
+        <div class="card-body" style="display:flex;flex-direction:column;gap:8px;">
+          ${[
+            ['🚌','Bus 052','transport','Route 42 · GRP003','34 students'],
+            ['📚','CS101','academics','Prof. Smith · GRP001','62 students'],
+            ['📖','CS202','academics','Prof. Smith · GRP002','55 students'],
+            ['🧺','Block A Laundry','laundry','Hostel A · GRP004','45 students'],
+            ['🍽️','Main Mess','mess','All campus · GRP005','247 students'],
+          ].map(([icon,name,type,desc,count])=>`
+          <div class="group-pill">
+            <div class="gp-left">
+              <div class="gp-icon">${icon}</div>
+              <div><div class="gp-name">${name}</div><div class="gp-type">${desc}</div></div>
+            </div>
+            <div style="text-align:right">
+              <div class="gp-count">${count}</div>
+              <span class="tag ${type==='transport'?'yellow':type==='academics'?'blue':type==='laundry'?'green':'yellow'}" style="margin-top:3px;font-size:0.55rem;">${type}</span>
+            </div>
+          </div>`).join('')}
+        </div>
+      </div>
+
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:1rem;letter-spacing:0.06em;color:var(--white);margin-bottom:10px;">MARCH MESS SUMMARY</div>
+      <div class="card">
+        <div class="card-body">
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;text-align:center;margin-bottom:14px;">
+            <div><div style="font-family:'Bebas Neue',sans-serif;font-size:1.8rem;color:var(--white);">63</div><div style="font-size:0.65rem;color:var(--muted);">Meals Eaten</div></div>
+            <div><div style="font-family:'Bebas Neue',sans-serif;font-size:1.8rem;color:#f87171;">27</div><div style="font-size:0.65rem;color:var(--muted);">Missed</div></div>
+            <div><div style="font-family:'Bebas Neue',sans-serif;font-size:1.8rem;color:var(--laundry);">₹1350</div><div style="font-size:0.65rem;color:var(--muted);">Refund</div></div>
+          </div>
+          <div style="background:rgba(52,211,153,0.08);border:1px solid rgba(52,211,153,0.2);border-radius:8px;padding:10px;font-size:0.7rem;color:var(--laundry);text-align:center;">
+            ✅ Refund of ₹1350 will be credited in 3 working days
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top:14px;padding:14px;background:var(--s2);border:1px solid rgba(248,113,113,0.2);border-radius:12px;">
+        <div style="font-size:0.72rem;font-weight:600;color:#f87171;margin-bottom:6px;">🔒 Student has NO write access</div>
+        <div style="font-size:0.68rem;color:var(--muted);line-height:1.8;">
+          POST /api/*/event → 403 Forbidden<br>
+          GET /api/groups (all) → 403 Forbidden<br>
+          Only reads: own profile, own notifications
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+// ── FIRE FUNCTIONS ──
+function updateSATypes() {
+  const domain = document.getElementById('sa-domain').value;
+  const types = {
+    transport: ['BUS_DELAYED','BUS_CANCELLED','BUS_ARRIVED'],
+    academics: ['CLASS_CANCELLED','CLASS_RESCHEDULED','EXAM_POSTPONED'],
+    laundry:   ['WASH_SLOT_BOOKED','WASH_SLOT_CANCELLED','WASH_MACHINE_STARTED','WASH_MACHINE_COMPLETED'],
+    mess:      ['MESS_CHECKIN','MESS_ABSENT','MESS_REFUND_REQUESTED','MESS_REFUND_PROCESSED'],
+  };
+  const sel = document.getElementById('sa-type');
+  sel.innerHTML = (types[domain]||[]).map(t=>`<option>${t}</option>`).join('');
+}
+
+function fireFromSA() {
+  const domain   = document.getElementById('sa-domain').value;
+  const type     = document.getElementById('sa-type').value;
+  const entityId = document.getElementById('sa-entity').value;
+  const groupId  = document.getElementById('sa-group').value;
+  const reason   = document.getElementById('sa-reason').value;
+  addToFeed('sa-feed', domain, type, entityId, reason);
+  incStat('sa-sent'); incStat('sa-queue');
+  setTimeout(()=>{ decStat('sa-queue'); },1200);
+  document.getElementById('notifBadge').textContent = parseInt(document.getElementById('notifBadge').textContent)+1;
+  toast('ok',`Event fired: ${type}`,`→ BullMQ · ${groupId} · ${domain}`);
+  setTimeout(()=>toast('ok',`Worker processed`,`✅ Notified students in ${groupId}`),1200);
+}
+
+function fireFromTeacher() {
+  const type    = document.getElementById('t-type').value;
+  const groupId = document.getElementById('t-group').value;
+  const reason  = document.getElementById('t-reason').value;
+  addToFeed('t-feed','academics',type,groupId,reason);
+  incStat('t-sent');
+  document.getElementById('notifBadge').textContent = parseInt(document.getElementById('notifBadge').textContent)+1;
+  toast('ok',`Event fired: ${type}`,`→ ${groupId} students notified`);
+  setTimeout(()=>toast('ok','Worker processed',`✅ Academic notification sent`),1200);
+}
+
+function fireFromBus() {
+  const type   = document.getElementById('b-type').value;
+  const reason = document.getElementById('b-reason').value;
+  addToFeed('b-feed','transport',type,'BUS_052',reason);
+  incStat('b-sent');
+  document.getElementById('notifBadge').textContent = parseInt(document.getElementById('notifBadge').textContent)+1;
+  toast('ok',`Event fired: ${type}`,`→ 34 students on BUS_052 notified`);
+  setTimeout(()=>toast('ok','Worker processed',`✅ Transport notification sent`),1200);
+}
+
+function fireFromLaundry() {
+  const type    = document.getElementById('l-type').value;
+  const machine = document.getElementById('l-machine').value;
+  addToFeed('l-feed','laundry',type,'HOSTEL-A',machine);
+  incStat('l-sent');
+  document.getElementById('notifBadge').textContent = parseInt(document.getElementById('notifBadge').textContent)+1;
+  toast('ok',`Event fired: ${type}`,`→ 45 Block A students notified`);
+  setTimeout(()=>toast('ok','Worker processed',`✅ Laundry notification sent`),1200);
+}
+
+function fireFromMess() {
+  const type    = document.getElementById('m-type').value;
+  const student = document.getElementById('m-student').value;
+  const meal    = document.getElementById('m-meal').value;
+  addToFeed('m-feed','mess',type,student,meal);
+  incStat('m-sent');
+  document.getElementById('notifBadge').textContent = parseInt(document.getElementById('notifBadge').textContent)+1;
+  toast('ok',`Event fired: ${type}`,`→ ${student} notified directly`);
+  setTimeout(()=>toast('ok','Worker processed',`✅ Mess notification sent`),1200);
+}
+
+// ── FEED HELPER ──
+function addToFeed(feedId, domain, type, entityId, detail) {
+  const feed = document.getElementById(feedId);
+  if (!feed) return;
+  const empty = feed.querySelector('[style*="No events"]');
+  if (empty) empty.remove();
+
+  const icons = {transport:'🚌',academics:'📚',laundry:'🧺',mess:'🍽️'};
+  const colors = {transport:'rgba(251,146,60,0.15)',academics:'rgba(56,189,248,0.15)',laundry:'rgba(52,211,153,0.15)',mess:'rgba(251,191,36,0.15)'};
+  const accents = {transport:'var(--bus)',academics:'var(--teacher)',laundry:'var(--laundry)',mess:'var(--mess)'};
+
+  const item = document.createElement('div');
+  item.className = 'feed-item';
+  item.innerHTML = `
+    <div class="fi-icon" style="background:${colors[domain]}">${icons[domain]||'📡'}</div>
+    <div style="flex:1">
+      <div class="fi-title">${formatTitle(type)}</div>
+      <div class="fi-msg">${detail||entityId}</div>
+      <div style="display:flex;gap:8px;margin-top:4px;">
+        <span style="font-family:'IBM Plex Mono',monospace;font-size:0.58rem;padding:1px 6px;border-radius:4px;background:${colors[domain]};color:${accents[domain]}">${domain}</span>
+        <span class="fi-time">${new Date().toLocaleTimeString()}</span>
+      </div>
+    </div>`;
+  feed.insertBefore(item, feed.firstChild);
+
+  // update global feed count
+  feedData.push({domain,type});
+  if (document.getElementById('sa-feedcount'))
+    document.getElementById('sa-feedcount').textContent = `${feedData.length} events`;
+}
+
+function formatTitle(type) {
+  const m = {BUS_DELAYED:'Bus Delayed ⏱️',BUS_CANCELLED:'Bus Cancelled ❌',BUS_ARRIVED:'Bus Arrived 🚌',CLASS_CANCELLED:'Class Cancelled 📚',CLASS_RESCHEDULED:'Class Rescheduled 🗓️',EXAM_POSTPONED:'Exam Postponed 📝',WASH_MACHINE_COMPLETED:'Wash Done 🧺',WASH_SLOT_CANCELLED:'Slot Cancelled 🔄',WASH_MACHINE_STARTED:'Machine Started 🌀',WASH_SLOT_BOOKED:'Slot Booked ✅',MESS_CHECKIN:'Mess Check-in ✅',MESS_ABSENT:'Mess Absent 🍽️',MESS_REFUND_REQUESTED:'Refund Requested 💰',MESS_REFUND_PROCESSED:'Refund Processed 💸'};
+  return m[type]||type;
+}
+
+// ── STAT HELPERS ──
+function incStat(id) { const el=document.getElementById(id); if(el) el.textContent=parseInt(el.textContent)+1; }
+function decStat(id) { const el=document.getElementById(id); if(el) el.textContent=Math.max(0,parseInt(el.textContent)-1); }
+
+// ── TOAST ──
+function toast(type, title, msg) {
+  const wrap = document.getElementById('toastWrap');
+  const icons = {ok:'✅',warn:'⚠️',err:'❌',info:'📡'};
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.innerHTML = `<div class="t-ico">${icons[type]||'📡'}</div><div><div class="t-title">${title}</div><div class="t-msg">${msg}</div></div>`;
+  wrap.appendChild(el);
+  setTimeout(()=>{el.style.opacity='0';el.style.transform='translateX(15px)';el.style.transition='all 0.25s';setTimeout(()=>el.remove(),250);},3000);
+}
+
+// init
+setTimeout(()=>toast('info','Smart Campus Connect','Select a role to explore the dashboard'),600);
+</script>
+</body>
+</html>
