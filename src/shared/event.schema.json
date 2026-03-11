@@ -1,0 +1,38 @@
+{
+  "requiredFields": [
+    "id",
+    "type",
+    "domain",
+    "entityId",
+    "timestamp",
+    "data"
+  ],
+
+  "domains": {
+    "transport": [
+      "BUS_DELAYED",
+      "BUS_CANCELLED",
+      "BUS_ARRIVED"
+    ],
+
+    "academics": [
+      "CLASS_CANCELLED",
+      "CLASS_RESCHEDULED",
+      "EXAM_POSTPONED"
+    ],
+
+    "mess": [
+      "MESS_CHECKIN",
+      "MESS_ABSENT",
+      "MESS_REFUND_REQUESTED",
+      "MESS_REFUND_PROCESSED"
+    ],
+
+    "laundry": [
+      "WASH_SLOT_BOOKED",
+      "WASH_SLOT_CANCELLED",
+      "WASH_MACHINE_STARTED",
+      "WASH_MACHINE_COMPLETED"
+    ]
+  }
+}
