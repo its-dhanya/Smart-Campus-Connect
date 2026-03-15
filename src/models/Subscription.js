@@ -1,4 +1,5 @@
-const mongoose = require('mongoose')
+// Subscription.js
+const mongoose = require('mongoose');
 
 const subscriptionSchema = new mongoose.Schema({
   studentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Student', required: true },
@@ -8,4 +9,4 @@ const subscriptionSchema = new mongoose.Schema({
 subscriptionSchema.index({ studentId: 1, groupId: 1 }, { unique: true });
 subscriptionSchema.index({ groupId: 1 });
 
-module.exports = subscriptionSchema;
+module.exports = mongoose.model('Subscription', subscriptionSchema); 

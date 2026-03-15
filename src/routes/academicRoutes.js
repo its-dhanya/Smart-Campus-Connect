@@ -1,7 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { verifyToken, allowRolesWithSuper } = require('../middleware/authMiddleware');
-// const academicController = require('../controllers/academicController');
+const { verifyToken, allowRolesWithSuper, allowRoles } = require('../middleware/authMiddleware');
 
 /**
  * ACADEMIC ROUTES (TEACHER + SUPER_ADMIN)
@@ -11,8 +10,6 @@ const { verifyToken, allowRolesWithSuper } = require('../middleware/authMiddlewa
 
 // GET /academics - List academic groups (TEACHER + SUPER_ADMIN)
 router.get('/', verifyToken, allowRolesWithSuper('TEACHER'), (req, res) => {
-  // TEACHER sees only their courses, SUPER_ADMIN sees all
-  // const groups = req.user.role === 'SUPER_ADMIN' ? allGroups : req.user.assignedGroups;
   res.json({ 
     message: 'Get academic groups',
     role: req.user.role,
@@ -20,17 +17,12 @@ router.get('/', verifyToken, allowRolesWithSuper('TEACHER'), (req, res) => {
   });
 });
 
-// POST /academics - Create academic group (SUPER_ADMIN ONLY)
-router.post('/', verifyToken, allowRolesWithSuper('TEACHER'), (req, res) => {
-  if (req.user.role !== 'SUPER_ADMIN') {
-    return res.status(403).json({ message: 'Only SUPER_ADMIN can create academic groups' });
-  }
+router.post('/', verifyToken, allowRoles('SUPER_ADMIN'), (req, res) => {
   res.json({ message: 'Create academic group - SUPER_ADMIN only' });
 });
 
 // GET /academics/:id - Get specific academic group details (TEACHER + SUPER_ADMIN)
 router.get('/:id', verifyToken, allowRolesWithSuper('TEACHER'), (req, res) => {
-  // Verify teacher has access to this group if not SUPER_ADMIN
   res.json({ 
     message: 'Get academic group details',
     groupId: req.params.id,
@@ -38,39 +30,26 @@ router.get('/:id', verifyToken, allowRolesWithSuper('TEACHER'), (req, res) => {
   });
 });
 
-// PUT /academics/:id - Update academic group (SUPER_ADMIN ONLY)
-router.put('/:id', verifyToken, allowRolesWithSuper('TEACHER'), (req, res) => {
-  if (req.user.role !== 'SUPER_ADMIN') {
-    return res.status(403).json({ message: 'Only SUPER_ADMIN can update academic groups' });
-  }
+router.put('/:id', verifyToken, allowRoles('SUPER_ADMIN'), (req, res) => {
   res.json({ message: 'Update academic group - SUPER_ADMIN only' });
 });
 
-// DELETE /academics/:id - Delete academic group (SUPER_ADMIN ONLY)
-router.delete('/:id', verifyToken, allowRolesWithSuper('TEACHER'), (req, res) => {
-  if (req.user.role !== 'SUPER_ADMIN') {
-    return res.status(403).json({ message: 'Only SUPER_ADMIN can delete academic groups' });
-  }
+router.delete('/:id', verifyToken, allowRoles('SUPER_ADMIN'), (req, res) => {
   res.json({ message: 'Delete academic group - SUPER_ADMIN only' });
 });
 
 // POST /academics/event - Fire academic event (TEACHER + SUPER_ADMIN)
-// Event types: CLASS_CANCELLED, CLASS_RESCHEDULED, EXAM_POSTPONED
 router.post('/event', verifyToken, allowRolesWithSuper('TEACHER'), (req, res) => {
   const { eventType, groupId, reason, newTime, newHall } = req.body;
   
-  // Validate event type
   const validTypes = ['CLASS_CANCELLED', 'CLASS_RESCHEDULED', 'EXAM_POSTPONED'];
   if (!validTypes.includes(eventType)) {
     return res.status(400).json({ message: 'Invalid academic event type' });
   }
 
-  // TEACHER can only notify students in their assigned groups (GRP001, GRP002)
-  if (req.user.role === 'TEACHER') {
-    const allowedGroups = ['GRP001', 'GRP002'];
-    if (!allowedGroups.includes(groupId)) {
-      return res.status(403).json({ message: 'TEACHER can only fire events to assigned groups (GRP001, GRP002)' });
-    }
+  // TEACHER can only fire events to their assigned groups
+  if (req.user.role === 'TEACHER' && !req.user.groups.includes(groupId)) {
+    return res.status(403).json({ message: 'TEACHER can only fire events to assigned groups' });
   }
 
   res.json({
@@ -78,10 +57,10 @@ router.post('/event', verifyToken, allowRolesWithSuper('TEACHER'), (req, res) =>
     event: {
       type: eventType,
       domain: 'academics',
-      groupId: groupId,
-      reason: reason,
-      newTime: newTime,
-      newHall: newHall,
+      groupId,
+      reason,
+      newTime,
+      newHall,
       firedBy: req.user.username,
       timestamp: new Date().toISOString()
     },

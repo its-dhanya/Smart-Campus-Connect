@@ -69,7 +69,7 @@ async function handleTransport(event) {
 
   const messages = {
     BUS_ARRIVED: {
-      title:   "Bus Arrived 🚌",
+      title:   "Bus Arrived",
       message: "Your bus has arrived at the stop."
     },
     BUS_DELAYED: {
@@ -77,10 +77,10 @@ async function handleTransport(event) {
       message: `Your bus is running late. ${event.data?.reason || ""}`
     },
     BUS_CANCELLED: {
-      title:   "Bus Cancelled ❌",
+      title:   "Bus Cancelled",
       message: `Bus ${event.entityId} has been cancelled today. ${event.data?.reason || ""}`
     },
-  };
+  };git branch
 
   const { title, message } = messages[event.type] || {};
   if (!title) return;
