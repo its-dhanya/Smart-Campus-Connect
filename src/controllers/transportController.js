@@ -256,7 +256,7 @@ exports.fireTransportEvent = async (req, res) => {
         busId: targetBus,
         reason: reason
       },
-      firedBy: req.user.username,
+      firedBy: req.user.name,
       status: 'pending',
       deliveryStats: {
         total: studentIds.length,
@@ -296,7 +296,7 @@ exports.fireTransportEvent = async (req, res) => {
         domain: 'transport',
         busId: targetBus,
         reason: reason,
-        firedBy: req.user.username,
+        firedBy: req.user.name,
         recipients: studentIds.length,
         timestamp: event.createdAt
       },

@@ -37,7 +37,7 @@ const verifyToken = async (req, res, next) => {
         req.user = { 
             id: decoded.id, 
             role: userRole, 
-            username: user.username,
+            username: user.name,
             name: user.name,
             groups: user.groups // for RBAC checks
         };

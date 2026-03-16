@@ -12,19 +12,22 @@ const academicController = require('../controllers/academicController');
 // GET /academics - List academic groups (TEACHER + SUPER_ADMIN)
 router.get('/', verifyToken, allowRolesWithSuper('TEACHER'), academicController.getAllAcademicGroups);
 
+// POST /academics - Create academic group (SUPER_ADMIN only)
 router.post('/', verifyToken, allowRoles('SUPER_ADMIN'), academicController.createAcademicGroup);
 
-// GET /academics/:id - Get specific academic group details (TEACHER + SUPER_ADMIN)
-router.get('/:id', verifyToken, allowRolesWithSuper('TEACHER'), academicController.getAcademicGroupById);
-
-router.put('/:id', verifyToken, allowRoles('SUPER_ADMIN'), academicController.updateAcademicGroup);
-
-router.delete('/:id', verifyToken, allowRoles('SUPER_ADMIN'), academicController.deleteAcademicGroup);
-
-// POST /academics/event - Fire academic event (TEACHER + SUPER_ADMIN)
+// POST /academics/event - Fire academic event  ← MUST be before /:id
 router.post('/event', verifyToken, allowRolesWithSuper('TEACHER'), academicController.fireAcademicEvent);
 
-// GET /academics/events/:groupId - Get recent academic events for a course (TEACHER + SUPER_ADMIN)
+// GET /academics/events/:groupId - Recent events for a course  ← MUST be before /:id
 router.get('/events/:groupId', verifyToken, allowRolesWithSuper('TEACHER'), academicController.getRecentAcademicEvents);
+
+// GET /academics/:id - Get specific academic group details
+router.get('/:id', verifyToken, allowRolesWithSuper('TEACHER'), academicController.getAcademicGroupById);
+
+// PUT /academics/:id - Update academic group (SUPER_ADMIN only)
+router.put('/:id', verifyToken, allowRoles('SUPER_ADMIN'), academicController.updateAcademicGroup);
+
+// DELETE /academics/:id - Delete academic group (SUPER_ADMIN only)
+router.delete('/:id', verifyToken, allowRoles('SUPER_ADMIN'), academicController.deleteAcademicGroup);
 
 module.exports = router;

@@ -258,7 +258,7 @@ exports.fireMessEvent = async (req, res) => {
         refundAmount: refundAmount,
         reason: reason
       },
-      firedBy: req.user.username,
+      firedBy: req.user.name,
       status: 'pending',
       deliveryStats: {
         total: 1,
@@ -301,7 +301,7 @@ exports.fireMessEvent = async (req, res) => {
         mealType: mealType,
         refundAmount: refundAmount,
         reason: reason,
-        firedBy: req.user.username,
+        firedBy: req.user.name,
         timestamp: event.createdAt
       },
       notification: `Notification queued for student ${studentId}`,
@@ -377,7 +377,7 @@ exports.processRefund = async (req, res) => {
         refundAmount: amount,
         reason: reason
       },
-      firedBy: req.user.username,
+      firedBy: req.user.name,
       status: 'pending',
       deliveryStats: {
         total: 1,

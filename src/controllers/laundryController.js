@@ -259,7 +259,7 @@ exports.fireLaundryEvent = async (req, res) => {
         block: targetBlock,
         reason: reason
       },
-      firedBy: req.user.username,
+      firedBy: req.user.name,
       status: 'pending',
       deliveryStats: {
         total: studentIds.length,
@@ -302,7 +302,7 @@ exports.fireLaundryEvent = async (req, res) => {
         machine: machine,
         groupId: group._id,
         reason: reason,
-        firedBy: req.user.username,
+        firedBy: req.user.name,
         recipients: studentIds.length,
         timestamp: event.createdAt
       },

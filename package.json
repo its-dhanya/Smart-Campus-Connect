@@ -1,14 +1,18 @@
 {
-  "name": "notifications_eda",
+  "name": "smart-campus-connect",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "src/server.js",
   "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js",
+    "worker": "node worker.js",
+    "worker:dev": "nodemon worker.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "description": "",
+  "description": "Smart Campus Connect - Event-Driven Notification System",
   "dependencies": {
     "bcryptjs": "^3.0.3",
     "bullmq": "^5.67.1",

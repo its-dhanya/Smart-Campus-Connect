@@ -222,7 +222,7 @@ exports.fireAcademicEvent = async (req, res) => {
     }
 
     // RBAC: TEACHER can only fire events for GRP001, GRP002
-    const allowedGroups = ['GRP001', 'GRP002'];
+    const allowedGroups = ['69b7d61862980f7df98673fc', '69b7d67262980f7df9867410'];
     if (req.user.role === 'TEACHER' && !allowedGroups.includes(groupId)) {
       return res.status(403).json({ 
         message: 'TEACHER can only fire events for assigned groups (GRP001, GRP002)'
@@ -256,7 +256,7 @@ exports.fireAcademicEvent = async (req, res) => {
         newHall: newHall,
         reason: reason
       },
-      firedBy: req.user.username,
+      firedBy: req.user.name,
       status: 'pending',
       deliveryStats: {
         total: studentIds.length,
@@ -300,7 +300,7 @@ exports.fireAcademicEvent = async (req, res) => {
         reason: reason,
         newTime: newTime,
         newHall: newHall,
-        firedBy: req.user.username,
+        firedBy: req.user.name,
         recipients: studentIds.length,
         timestamp: event.createdAt
       },
@@ -321,7 +321,7 @@ exports.getRecentAcademicEvents = async (req, res) => {
     const groupId = req.params.groupId;
 
     // RBAC: TEACHER can only access their assigned groups
-    const allowedGroups = ['GRP001', 'GRP002'];
+    const allowedGroups = ['69b7d61862980f7df98673fc', '69b7d67262980f7df9867410'];
     if (req.user.role === 'TEACHER' && !allowedGroups.includes(groupId)) {
       return res.status(403).json({ 
         message: 'TEACHER can only access assigned groups'
