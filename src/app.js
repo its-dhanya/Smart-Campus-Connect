@@ -1,5 +1,7 @@
 const express = require('express');
+const cors = require('cors');
 require('dotenv').config();
+
 const authRoutes = require('./routes/authRoutes');
 const studentRoutes = require('./routes/studentRoutes');
 const groupRoutes = require('./routes/groupRoutes');
@@ -10,10 +12,15 @@ const academicRoutes = require('./routes/academicRoutes');
 const transportRoutes = require('./routes/transportRoutes');
 const messRoutes = require('./routes/messRoutes');
 const laundryRoutes = require('./routes/laundryRoutes');
+
 const dbConnect = require('./config/dbConnect');
 const { createDefaultAdmin } = require('./controllers/authController');
 
 const app = express();
+
+app.use(cors({
+  origin: "http://localhost:5173"
+}));
 
 app.use(express.json());
 
@@ -31,6 +38,8 @@ app.use('/bus', transportRoutes);
 app.use('/mess', messRoutes);
 app.use('/laundry', laundryRoutes);
 
-app.get('/health', (req, res) => res.json({ status: 'ok' }));
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok' });
+});
 
 module.exports = app;

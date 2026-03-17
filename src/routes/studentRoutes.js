@@ -15,7 +15,10 @@ router.put('/:id/fcm-token', verifyToken, studentController.updateFcmToken);
 // GET /students/:id/groups - Get groups the student belongs to
 router.get('/:id/groups', verifyToken, studentController.getStudentGroups);
 
-// GET /students/:id/notifications - Get student notifications
+// GET /students/:id/notifications - Get student notifications (last 24 h, non-dismissed)
 router.get('/:id/notifications', verifyToken, studentController.getStudentNotifications);
+
+// DELETE /students/:id/notifications/:eventId - Dismiss a notification
+router.delete('/:id/notifications/:eventId', verifyToken, studentController.deleteStudentNotification);
 
 module.exports = router;

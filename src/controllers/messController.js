@@ -6,497 +6,386 @@ const eventQueue = require('../queue/eventQueue');
 
 /**
  * MESS CONTROLLER
- * Handles all mess-domain specific operations
- * Mess Admins manage: Main Mess (GRP005 - 247 students)
- * Manages check-ins, absences, refunds
+ * Simple meal tracking and auto-refund system.
+ * ₹80 per meal; auto-refund for missed meals at month end.
+ *
+ * RULE: students can only check in for TODAY's date.
  */
+
+const COST_PER_MEAL = 80;
+const MEALS = ['breakfast', 'lunch', 'dinner'];
+
+// In-memory store: { '<studentId>-YYYY-MM-DD': { breakfast, lunch, dinner } }
+const mealCheckins = {};
+
+/** Return today's date string in IST (or server local time) as YYYY-MM-DD */
+function todayString() {
+  return new Date().toISOString().split('T')[0];
+}
 
 /**
- * GET /mess - List all mess groups
- * MESS_ADMIN: sees only Main Mess
- * SUPER_ADMIN: sees all messes
+ * Parse a checkin key back into { studentId, date }.
+ * Key format: "<ObjectId>-YYYY-MM-DD"   (ObjectId has no hyphens)
  */
-exports.getAllMessGroups = async (req, res) => {
-  try {
-    let query = { type: 'MESS' };
+function parseCheckinKey(key) {
+  const parts = key.split('-');
+  const date = parts.slice(-3).join('-');       // last 3 → YYYY-MM-DD
+  const studentId = parts.slice(0, -3).join('-');
+  return { studentId, date };
+}
 
-    // If MESS_ADMIN, filter to assigned mess only
-    if (req.user.role === 'MESS_ADMIN') {
-      query.ownerId = 'MAIN_MESS'; // Main Mess only
-    }
-
-    const groups = await Group.find(query).select('_id name ownerId type createdAt');
-
-    return res.json({
-      message: 'Mess groups retrieved successfully',
-      role: req.user.role,
-      accessLevel: req.user.role === 'SUPER_ADMIN' ? 'all messes' : 'assigned mess only',
-      count: groups.length,
-      groups: groups.map(g => ({
-        id: g._id,
-        name: g.name,
-        messId: g.ownerId,
-        type: g.type,
-        createdAt: g.createdAt
-      }))
-    });
-  } catch (error) {
-    console.error('Error getting mess groups:', error);
-    return res.status(500).json({ message: 'Internal server error', error: error.message });
-  }
-};
+// ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * POST /mess - Create mess group (SUPER_ADMIN ONLY)
+ * POST /mess/checkin
+ * Body: { mealType: 'breakfast|lunch|dinner' }
+ *
+ * The date is always today — students cannot check in for past or future dates.
  */
-exports.createMessGroup = async (req, res) => {
+exports.checkInMeal = async (req, res) => {
   try {
-    const { name, ownerId } = req.body;
+    const studentId = req.user.id;
+    const { mealType } = req.body;
 
-    if (!name || !ownerId) {
-      return res.status(400).json({ message: 'Name and ownerId are required' });
-    }
-
-    // Check if mess already exists
-    const existingMess = await Group.findOne({ ownerId, type: 'MESS' });
-    if (existingMess) {
-      return res.status(400).json({ message: 'Mess group already exists' });
-    }
-
-    const newMess = new Group({
-      name: name,
-      ownerId: ownerId,
-      type: 'MESS'
-    });
-
-    await newMess.save();
-
-    return res.status(201).json({
-      message: 'Mess group created successfully',
-      mess: {
-        id: newMess._id,
-        name: newMess.name,
-        messId: newMess.ownerId,
-        type: newMess.type
-      }
-    });
-  } catch (error) {
-    console.error('Error creating mess group:', error);
-    return res.status(500).json({ message: 'Internal server error', error: error.message });
-  }
-};
-
-/**
- * GET /mess/:id - Get specific mess group details
- */
-exports.getMessGroupById = async (req, res) => {
-  try {
-    const messId = req.params.id;
-
-    const mess = await Group.findById(messId);
-    if (!mess || mess.type !== 'MESS') {
-      return res.status(404).json({ message: 'Mess group not found' });
-    }
-
-    // RBAC: MESS_ADMIN can only access Main Mess
-    if (req.user.role === 'MESS_ADMIN' && mess.ownerId !== 'MAIN_MESS') {
-      return res.status(403).json({ 
-        message: 'MESS_ADMIN can only access assigned mess (Main Mess)'
-      });
-    }
-
-    // Get subscriber count
-    const subscriberCount = await Subscription.countDocuments({ groupId: mess._id });
-
-    // Get subscribers count summary
-    const subscribers = await Subscription.find({ groupId: mess._id })
-      .populate('studentId', 'name email rollNo department');
-
-    return res.json({
-      message: 'Mess group retrieved successfully',
-      mess: {
-        id: mess._id,
-        name: mess.name,
-        messId: mess.ownerId,
-        type: mess.type,
-        studentCount: subscriberCount,
-        students: subscribers.map(s => ({
-          studentId: s.studentId._id,
-          name: s.studentId.name,
-          email: s.studentId.email,
-          rollNo: s.studentId.rollNo,
-          department: s.studentId.department
-        })),
-        createdAt: mess.createdAt
-      }
-    });
-  } catch (error) {
-    console.error('Error getting mess group:', error);
-    return res.status(500).json({ message: 'Internal server error', error: error.message });
-  }
-};
-
-/**
- * PUT /mess/:id - Update mess group
- */
-exports.updateMessGroup = async (req, res) => {
-  try {
-    const messId = req.params.id;
-    const { name, ownerId } = req.body;
-
-    const mess = await Group.findById(messId);
-    if (!mess || mess.type !== 'MESS') {
-      return res.status(404).json({ message: 'Mess group not found' });
-    }
-
-    // RBAC: MESS_ADMIN can only update Main Mess
-    if (req.user.role === 'MESS_ADMIN' && mess.ownerId !== 'MAIN_MESS') {
-      return res.status(403).json({ 
-        message: 'MESS_ADMIN can only update assigned mess (Main Mess)'
-      });
-    }
-
-    if (name) mess.name = name;
-    if (ownerId && req.user.role === 'SUPER_ADMIN') mess.ownerId = ownerId;
-
-    await mess.save();
-
-    return res.json({
-      message: 'Mess group updated successfully',
-      mess: {
-        id: mess._id,
-        name: mess.name,
-        messId: mess.ownerId,
-        type: mess.type
-      }
-    });
-  } catch (error) {
-    console.error('Error updating mess group:', error);
-    return res.status(500).json({ message: 'Internal server error', error: error.message });
-  }
-};
-
-/**
- * DELETE /mess/:id - Delete mess group (SUPER_ADMIN ONLY)
- */
-exports.deleteMessGroup = async (req, res) => {
-  try {
-    const messId = req.params.id;
-
-    const mess = await Group.findByIdAndDelete(messId);
-    if (!mess || mess.type !== 'MESS') {
-      return res.status(404).json({ message: 'Mess group not found' });
-    }
-
-    // Delete all subscriptions for this mess
-    await Subscription.deleteMany({ groupId: messId });
-
-    return res.json({
-      message: 'Mess group deleted successfully',
-      deletedMess: {
-        id: mess._id,
-        name: mess.name,
-        messId: mess.ownerId
-      }
-    });
-  } catch (error) {
-    console.error('Error deleting mess group:', error);
-    return res.status(500).json({ message: 'Internal server error', error: error.message });
-  }
-};
-
-/**
- * POST /mess/event - Fire mess event
- * Event types: MESS_CHECKIN, MESS_ABSENT, MESS_REFUND_REQUESTED, MESS_REFUND_PROCESSED
- */
-exports.fireMessEvent = async (req, res) => {
-  try {
-    const { eventType, studentId, mealType, refundAmount, reason } = req.body;
-
-    // Validate event type
-    const validTypes = ['MESS_CHECKIN', 'MESS_ABSENT', 'MESS_REFUND_REQUESTED', 'MESS_REFUND_PROCESSED'];
-    if (!validTypes.includes(eventType)) {
-      return res.status(400).json({ 
-        message: 'Invalid mess event type',
-        validTypes: validTypes
-      });
-    }
-
-    // Validate meal type
-    const validMeals = ['breakfast', 'lunch', 'dinner'];
-    if (!validMeals.includes(mealType)) {
-      return res.status(400).json({ 
+    if (!MEALS.includes(mealType)) {
+      return res.status(400).json({
         message: 'Invalid meal type',
-        validMeals: validMeals
+        validMeals: MEALS,
       });
     }
 
-    // Get the mess group (GRP005 for Main Mess)
+    // Always use server's today — ignore any client-supplied date
+    const date = todayString();
+    const key = `${studentId}-${date}`;
+
+    if (!mealCheckins[key]) {
+      mealCheckins[key] = { breakfast: false, lunch: false, dinner: false };
+    }
+
+    if (mealCheckins[key][mealType]) {
+      return res.status(409).json({
+        message: `Already checked in for ${mealType} today`,
+        date,
+      });
+    }
+
+    mealCheckins[key][mealType] = true;
+
+    const student = await Student.findById(studentId);
     const mess = await Group.findOne({ ownerId: 'MAIN_MESS', type: 'MESS' });
-    if (!mess) {
-      return res.status(404).json({ message: 'Mess group not found' });
-    }
 
-    // Get target student(s)
-    const targetStudent = await Student.findById(studentId);
-    if (!targetStudent) {
-      return res.status(404).json({ message: 'Student not found' });
-    }
-
-    // For this event, we notify the specific student directly (not broadcast to group)
-    const fcmTokens = targetStudent.fcmToken ? [targetStudent.fcmToken] : [];
-
-    // Create event record
     const event = new Event({
       domain: 'mess',
-      type: eventType,
+      type: 'MESS_CHECKIN',
       groupId: mess._id,
       entityId: 'MAIN_MESS',
       metadata: {
-        studentId: studentId,
-        mealType: mealType,
-        refundAmount: refundAmount,
-        reason: reason
+        studentId,
+        studentName: student.name,
+        mealType,
+        date,
       },
-      firedBy: req.user.name,
-      status: 'pending',
-      deliveryStats: {
-        total: 1,
-        delivered: 0,
-        failed: 0,
-        pending: 1
-      }
+      firedBy: 'STUDENT',
+      status: 'completed',
     });
-
     await event.save();
 
-    // Queue the event for BullMQ processing
+    return res.status(201).json({
+      message: `Checked in for ${mealType}`,
+      checkin: {
+        studentId,
+        date,
+        mealType,
+        cost: COST_PER_MEAL,
+        checkedInAt: new Date(),
+      },
+    });
+  } catch (error) {
+    console.error('Error checking in:', error);
+    return res.status(500).json({ message: 'Internal server error', error: error.message });
+  }
+};
+
+/**
+ * GET /mess/meals/:date
+ * Students can only query today's date.
+ */
+exports.getMyMealsForDate = async (req, res) => {
+  try {
+    const studentId = req.user.id;
+    const { date } = req.params;
+    const today = todayString();
+
+    // Students are restricted to today's data
+    if (req.user.role === 'STUDENT' && date !== today) {
+      return res.status(403).json({
+        message: 'Students can only view meal data for today',
+        today,
+      });
+    }
+
+    const key = `${studentId}-${date}`;
+    const meals = mealCheckins[key] || { breakfast: false, lunch: false, dinner: false };
+
+    const mealsData = MEALS.map((meal) => ({
+      mealType: meal,
+      checkedIn: meals[meal],
+      cost: COST_PER_MEAL,
+      status: meals[meal] ? 'attended' : 'missed',
+    }));
+
+    const attended = mealsData.filter((m) => m.checkedIn).length;
+    const missed = 3 - attended;
+
+    return res.json({
+      message: 'Meals retrieved',
+      date,
+      meals: mealsData,
+      summary: {
+        attended,
+        missed,
+        costIncurred: attended * COST_PER_MEAL,
+        refundDue: missed * COST_PER_MEAL,
+      },
+    });
+  } catch (error) {
+    console.error('Error getting meals:', error);
+    return res.status(500).json({ message: 'Internal server error', error: error.message });
+  }
+};
+
+/**
+ * GET /mess/monthly-summary
+ * Query: ?month=2026-03  (defaults to current month)
+ */
+exports.getMonthlySummary = async (req, res) => {
+  try {
+    const studentId = req.user.id;
+    const { month } = req.query;
+
+    let targetMonth = month;
+    if (!targetMonth) {
+      const now = new Date();
+      targetMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    }
+
+    const [year, monthNum] = targetMonth.split('-');
+    const startDate = new Date(`${year}-${monthNum}-01`);
+    const endDate = new Date(startDate);
+    endDate.setMonth(endDate.getMonth() + 1);
+
+    let totalAttended = 0;
+    let totalMissed = 0;
+    const dayWiseMeals = {};
+
+    for (let d = new Date(startDate); d < endDate; d.setDate(d.getDate() + 1)) {
+      const dateStr = d.toISOString().split('T')[0];
+      const key = `${studentId}-${dateStr}`;
+      const meals = mealCheckins[key] || { breakfast: false, lunch: false, dinner: false };
+
+      const attended = Object.values(meals).filter((v) => v).length;
+      const missed = 3 - attended;
+
+      totalAttended += attended;
+      totalMissed += missed;
+      dayWiseMeals[dateStr] = { attended, missed, meals };
+    }
+
+    const daysInMonth = (endDate - startDate) / (1000 * 60 * 60 * 24);
+    const totalMealsExpected = daysInMonth * 3;
+
+    return res.json({
+      message: 'Monthly summary retrieved',
+      month: targetMonth,
+      summary: {
+        daysInMonth,
+        totalMealsExpected,
+        mealsAttended: totalAttended,
+        mealsMissed: totalMissed,
+        costIncurred: totalAttended * COST_PER_MEAL,
+        refundDue: totalMissed * COST_PER_MEAL,
+        attendancePercentage:
+          ((totalAttended / totalMealsExpected) * 100).toFixed(2) + '%',
+      },
+      dayWiseSummary: dayWiseMeals,
+    });
+  } catch (error) {
+    console.error('Error getting summary:', error);
+    return res.status(500).json({ message: 'Internal server error', error: error.message });
+  }
+};
+
+/**
+ * POST /mess/request-refund
+ * Body: { month: 'YYYY-MM' }
+ */
+exports.requestMonthlyRefund = async (req, res) => {
+  try {
+    const studentId = req.user.id;
+    const { month } = req.body;
+
+    if (!month) {
+      return res.status(400).json({ message: 'Month required (YYYY-MM)' });
+    }
+
+    const [year, monthNum] = month.split('-');
+    const startDate = new Date(`${year}-${monthNum}-01`);
+    const endDate = new Date(startDate);
+    endDate.setMonth(endDate.getMonth() + 1);
+
+    let totalMissed = 0;
+    for (let d = new Date(startDate); d < endDate; d.setDate(d.getDate() + 1)) {
+      const dateStr = d.toISOString().split('T')[0];
+      const key = `${studentId}-${dateStr}`;
+      const meals = mealCheckins[key] || { breakfast: false, lunch: false, dinner: false };
+      totalMissed += 3 - Object.values(meals).filter((v) => v).length;
+    }
+
+    const refundAmount = totalMissed * COST_PER_MEAL;
+
+    const student = await Student.findById(studentId);
+    const mess = await Group.findOne({ ownerId: 'MAIN_MESS', type: 'MESS' });
+
+    const event = new Event({
+      domain: 'mess',
+      type: 'MESS_REFUND_REQUESTED',
+      groupId: mess._id,
+      entityId: 'MAIN_MESS',
+      metadata: {
+        studentId,
+        studentName: student.name,
+        month,
+        refundAmount,
+        mealsMissed: totalMissed,
+      },
+      firedBy: 'STUDENT',
+      status: 'pending',
+      deliveryStats: { total: 1, delivered: 0, failed: 0, pending: 1 },
+    });
+    await event.save();
+
     if (eventQueue) {
       await eventQueue.add('mess-event', {
         eventId: event._id,
-        type: eventType,
-        studentId: studentId,
-        fcmTokens: fcmTokens,
-        groupId: mess._id,
-        mealType: mealType,
-        refundAmount: refundAmount,
-        reason: reason,
-        timestamp: new Date()
-      }, {
-        attempts: 3,
-        backoff: {
-          type: 'exponential',
-          delay: 2000
-        }
-      });
-    }
-
-    return res.status(201).json({
-      message: 'Mess event fired and queued successfully',
-      event: {
-        id: event._id,
-        type: eventType,
-        domain: 'mess',
-        studentId: studentId,
-        mealType: mealType,
-        refundAmount: refundAmount,
-        reason: reason,
-        firedBy: req.user.name,
-        timestamp: event.createdAt
-      },
-      notification: `Notification queued for student ${studentId}`,
-      status: 'pending'
-    });
-  } catch (error) {
-    console.error('Error firing mess event:', error);
-    return res.status(500).json({ message: 'Internal server error', error: error.message });
-  }
-};
-
-/**
- * GET /mess/checkins/:date - Get check-ins for a specific date
- */
-exports.getCheckins = async (req, res) => {
-  try {
-    const date = req.params.date;
-
-    // RBAC: MESS_ADMIN can only access Main Mess
-    if (req.user.role === 'MESS_ADMIN') {
-      // Verify they have access to Main Mess
-    }
-
-    // Return check-in data for the date
-    // This would typically query a check-in collection
-    return res.json({
-      message: 'Check-ins retrieved for date',
-      date: date,
-      summary: {
-        checkedIn: 183,
-        absent: 64,
-        excused: 0,
-        total: 247
-      },
-      mealBreakdown: {
-        breakfast: { checked: 100, absent: 83, excused: 0 },
-        lunch: { checked: 150, absent: 50, excused: 47 },
-        dinner: { checked: 120, absent: 80, excused: 47 }
-      }
-    });
-  } catch (error) {
-    console.error('Error getting check-ins:', error);
-    return res.status(500).json({ message: 'Internal server error', error: error.message });
-  }
-};
-
-/**
- * POST /mess/refund - Process refund
- */
-exports.processRefund = async (req, res) => {
-  try {
-    const { studentId, amount, reason } = req.body;
-
-    if (!studentId || !amount) {
-      return res.status(400).json({ message: 'studentId and amount are required' });
-    }
-
-    // Get the student
-    const student = await Student.findById(studentId);
-    if (!student) {
-      return res.status(404).json({ message: 'Student not found' });
-    }
-
-    // Create refund event
-    const mess = await Group.findOne({ ownerId: 'MAIN_MESS', type: 'MESS' });
-    const event = new Event({
-      domain: 'mess',
-      type: 'MESS_REFUND_PROCESSED',
-      groupId: mess._id,
-      entityId: 'MAIN_MESS',
-      metadata: {
-        studentId: studentId,
-        refundAmount: amount,
-        reason: reason
-      },
-      firedBy: req.user.name,
-      status: 'pending',
-      deliveryStats: {
-        total: 1,
-        delivered: 0,
-        failed: 0,
-        pending: 1
-      }
-    });
-
-    await event.save();
-
-    // Queue the refund notification
-    if (eventQueue && student.fcmToken) {
-      await eventQueue.add('mess-event', {
-        eventId: event._id,
-        type: 'MESS_REFUND_PROCESSED',
-        studentId: studentId,
-        fcmTokens: [student.fcmToken],
-        groupId: mess._id,
-        refundAmount: amount,
-        reason: reason,
-        timestamp: new Date()
-      }, {
-        attempts: 3,
-        backoff: {
-          type: 'exponential',
-          delay: 2000
-        }
-      });
-    }
-
-    return res.status(201).json({
-      message: 'Refund processed and notification queued',
-      refund: {
-        studentId: studentId,
+        type: 'MESS_REFUND_REQUESTED',
+        studentId,
         studentName: student.name,
-        amount: amount,
-        reason: reason,
-        status: 'pending - will be credited in 3 working days',
-        processedBy: req.user.username,
-        timestamp: new Date().toISOString()
-      }
-    });
-  } catch (error) {
-    console.error('Error processing refund:', error);
-    return res.status(500).json({ message: 'Internal server error', error: error.message });
-  }
-};
-
-/**
- * GET /mess/events/:messId - Get recent mess events
- */
-exports.getRecentMessEvents = async (req, res) => {
-  try {
-    const messId = req.params.messId || 'MAIN_MESS';
-
-    // RBAC: MESS_ADMIN can only access Main Mess
-    if (req.user.role === 'MESS_ADMIN' && messId !== 'MAIN_MESS') {
-      return res.status(403).json({ 
-        message: 'MESS_ADMIN can only access assigned mess (Main Mess)'
+        month,
+        refundAmount,
+        timestamp: new Date(),
       });
     }
 
-    const events = await Event.find({
-      domain: 'mess',
-      entityId: messId
-    })
-      .sort({ createdAt: -1 })
-      .limit(20)
-      .select('type metadata status deliveryStats createdAt firedBy');
-
-    return res.json({
-      message: 'Recent mess events retrieved',
-      mess: messId,
-      events: events.map(e => ({
-        id: e._id,
-        type: e.type,
-        studentId: e.metadata?.studentId,
-        mealType: e.metadata?.mealType,
-        refundAmount: e.metadata?.refundAmount,
-        status: e.status,
-        firedBy: e.firedBy,
-        timestamp: e.createdAt
-      })),
-      total: events.length
+    return res.status(201).json({
+      message: 'Refund request submitted',
+      refundRequest: {
+        studentId,
+        month,
+        mealsMissed: totalMissed,
+        refundAmount,
+        status: 'pending',
+        requestedAt: new Date(),
+      },
     });
   } catch (error) {
-    console.error('Error getting mess events:', error);
+    console.error('Error requesting refund:', error);
+    return res.status(500).json({ message: 'Internal server error', error: error.message });
+  }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ADMIN ROUTES
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * GET /mess/admin/daily-checkins?date=YYYY-MM-DD
+ */
+exports.getDailyCheckins = async (req, res) => {
+  try {
+    const { date } = req.query;
+
+    if (!date) {
+      return res.status(400).json({ message: 'Date required (YYYY-MM-DD)' });
+    }
+
+    const breakfastCount = Object.keys(mealCheckins).filter(
+      (k) => k.endsWith(`-${date}`) && mealCheckins[k].breakfast
+    ).length;
+    const lunchCount = Object.keys(mealCheckins).filter(
+      (k) => k.endsWith(`-${date}`) && mealCheckins[k].lunch
+    ).length;
+    const dinnerCount = Object.keys(mealCheckins).filter(
+      (k) => k.endsWith(`-${date}`) && mealCheckins[k].dinner
+    ).length;
+
+    return res.json({
+      message: 'Daily check-ins retrieved',
+      date,
+      checkins: {
+        breakfast: breakfastCount,
+        lunch: lunchCount,
+        dinner: dinnerCount,
+        total: breakfastCount + lunchCount + dinnerCount,
+      },
+    });
+  } catch (error) {
+    console.error('Error getting checkins:', error);
     return res.status(500).json({ message: 'Internal server error', error: error.message });
   }
 };
 
 /**
- * GET /mess/summary/:month - Get monthly mess summary for a student
+ * GET /mess/admin/monthly-report?month=YYYY-MM
  */
-exports.getMessSummary = async (req, res) => {
+exports.getMonthlyRefundReport = async (req, res) => {
   try {
-    const month = req.params.month || 'march';
-    const year = new Date().getFullYear();
+    const { month } = req.query;
 
-    // Return mock summary data
-    return res.json({
-      message: 'Mess summary retrieved',
-      period: `${month} ${year}`,
-      summary: {
-        mealsEaten: 63,
-        mealsMissed: 27,
-        totalMeals: 90,
-        refundDue: 1350,
-        refundStatus: 'pending - will be credited in 3 working days',
-        breakdown: {
-          breakfast: { attended: 20, missed: 10 },
-          lunch: { attended: 22, missed: 8 },
-          dinner: { attended: 21, missed: 9 }
+    if (!month) {
+      return res.status(400).json({ message: 'Month required (YYYY-MM)' });
+    }
+
+    const [year, monthNum] = month.split('-');
+    const startDate = new Date(`${year}-${monthNum}-01`);
+    const endDate = new Date(startDate);
+    endDate.setMonth(endDate.getMonth() + 1);
+
+    const refunds = {};
+    let totalRefundDue = 0;
+
+    for (const checkinKey in mealCheckins) {
+      const { studentId, date } = parseCheckinKey(checkinKey);
+      const d = new Date(date);
+
+      if (d >= startDate && d < endDate) {
+        if (!refunds[studentId]) {
+          refunds[studentId] = { missed: 0, refund: 0 };
         }
+        const meals = mealCheckins[checkinKey];
+        refunds[studentId].missed += 3 - Object.values(meals).filter((v) => v).length;
       }
+    }
+
+    for (const studentId in refunds) {
+      refunds[studentId].refund = refunds[studentId].missed * COST_PER_MEAL;
+      totalRefundDue += refunds[studentId].refund;
+    }
+
+    return res.json({
+      message: 'Monthly refund report',
+      month,
+      summary: {
+        totalStudents: Object.keys(refunds).length,
+        totalRefundDue,
+        averageRefundPerStudent:
+          Object.keys(refunds).length > 0
+            ? (totalRefundDue / Object.keys(refunds).length).toFixed(2)
+            : 0,
+      },
+      refundsByStudent: refunds,
     });
   } catch (error) {
-    console.error('Error getting mess summary:', error);
+    console.error('Error getting refund report:', error);
     return res.status(500).json({ message: 'Internal server error', error: error.message });
   }
 };

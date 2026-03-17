@@ -1,36 +1,39 @@
 const express = require('express');
 const router = express.Router();
-const { verifyToken, allowRoles, allowRolesWithSuper } = require('../middleware/authMiddleware');
+const { verifyToken } = require('../middleware/authMiddleware');
 const messController = require('../controllers/messController');
 
-// GET /mess - List all mess groups
-router.get('/', verifyToken, allowRolesWithSuper('MESS_ADMIN'), messController.getAllMessGroups);
+/**
+ * MESS ROUTES
+ *
+ * Students:
+ *   POST   /mess/checkin               — check in for a meal (today only, no date param)
+ *   GET    /mess/meals/:date            — view meals for :date (students: today only)
+ *   GET    /mess/monthly-summary        — ?month=YYYY-MM
+ *   POST   /mess/request-refund         — body: { month }
+ *
+ * Admins:
+ *   GET    /mess/admin/daily-checkins   — ?date=YYYY-MM-DD
+ *   GET    /mess/admin/monthly-report   — ?month=YYYY-MM
+ */
 
-// POST /mess - Create mess group (SUPER_ADMIN only)
-router.post('/', verifyToken, allowRoles('SUPER_ADMIN'), messController.createMessGroup);
+// ── Student ──────────────────────────────────────────────────────────────────
 
-// GET /mess/checkins/:date - Get check-ins for a date (before /:id to avoid param clash)
-router.get('/checkins/:date', verifyToken, allowRolesWithSuper('MESS_ADMIN'), messController.getCheckins);
+// Check in for a meal (date is always today, enforced server-side)
+router.post('/checkin', verifyToken, messController.checkInMeal);
 
-// POST /mess/refund - Process refund
-router.post('/refund', verifyToken, allowRolesWithSuper('MESS_ADMIN'), messController.processRefund);
+// View meals for a date (students restricted to today)
+router.get('/meals/:date', verifyToken, messController.getMyMealsForDate);
 
-// POST /mess/event - Fire mess event
-router.post('/event', verifyToken, allowRolesWithSuper('MESS_ADMIN'), messController.fireMessEvent);
+// Monthly summary with refund calculation
+router.get('/monthly-summary', verifyToken, messController.getMonthlySummary);
 
-// GET /mess/events/:messId - Get recent mess events
-router.get('/events/:messId', verifyToken, allowRolesWithSuper('MESS_ADMIN'), messController.getRecentMessEvents);
+// Request refund for the month
+router.post('/request-refund', verifyToken, messController.requestMonthlyRefund);
 
-// GET /mess/summary/:month - Get monthly summary
-router.get('/summary/:month', verifyToken, allowRolesWithSuper('MESS_ADMIN'), messController.getMessSummary);
+// ── Admin ─────────────────────────────────────────────────────────────────────
 
-// GET /mess/:id - Get specific mess group details
-router.get('/:id', verifyToken, allowRolesWithSuper('MESS_ADMIN'), messController.getMessGroupById);
-
-// PUT /mess/:id - Update mess group
-router.put('/:id', verifyToken, allowRolesWithSuper('MESS_ADMIN'), messController.updateMessGroup);
-
-// DELETE /mess/:id - Delete mess group (SUPER_ADMIN only)
-router.delete('/:id', verifyToken, allowRoles('SUPER_ADMIN'), messController.deleteMessGroup);
+router.get('/admin/daily-checkins', verifyToken, messController.getDailyCheckins);
+router.get('/admin/monthly-report', verifyToken, messController.getMonthlyRefundReport);
 
 module.exports = router;

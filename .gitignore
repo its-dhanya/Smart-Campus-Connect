@@ -1,1 +1,5 @@
 node_modules/
+.env
+frontend.zip
+src.zip
+serviceAccountKey.json
