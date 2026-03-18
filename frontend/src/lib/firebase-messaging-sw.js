@@ -6,12 +6,12 @@ importScripts('https://www.gstatic.com/firebasejs/10.8.0/firebase-messaging-comp
 
 // Must match your firebaseConfig in src/lib/firebase.js
 const firebaseConfig = {
-    apiKey: "AIzaSyBDeq6g3g7NYyCTo1AFUmNQ2xYsJOPYYwE",
-    authDomain: "smartcampusconnect-bf148.firebaseapp.com",
-    projectId: "smartcampusconnect-bf148",
-    storageBucket: "smartcampusconnect-bf148.firebasestorage.app",
-    messagingSenderId: "777527724322",
-    appId: "1:777527724322:web:43ceb34e12f4eaf36ffd7b"
+    apiKey: "",
+    authDomain: "",
+    projectId: "",
+    storageBucket: "",
+    messagingSenderId: "",
+    appId: ""
   };
 
 const messaging = firebase.messaging();
