@@ -26,18 +26,19 @@ A real-time campus notification and management system for hostels. Students rece
 ## Architecture Overview
 
 ### System architecture
-
-![System architecture](images/image.svg)
+<p align="center">
+  <img src="images/overallflow.png" width="500"/>
+</p>
 
 ### Event notification flow
-
-How a notification travels from admin action to student device:
-
-![Event notification flow](images/image(1).svg)
+<p align="center">
+  <img src="images/sysflow.png" width="500"/>
+</p>
 
 ### Data Model
-
-![Data model](images/arch_data_model.svg)
+<p align="center">
+  <img src="images/data_arch.png" width="500"/>
+</p>
 
 ---
 
